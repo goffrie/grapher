@@ -14,14 +14,11 @@
    <string>Grapher</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
+   <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
      <widget class="QSplitter" name="splitter">
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
-      </property>
-      <property name="childrenCollapsible">
-       <bool>false</bool>
       </property>
       <widget class="QScrollArea" name="scrollArea">
        <property name="sizePolicy">
@@ -29,6 +26,9 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Raised</enum>
        </property>
        <property name="horizontalScrollBarPolicy">
         <enum>Qt::ScrollBarAlwaysOff</enum>
@@ -41,7 +41,7 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>507</width>
+          <width>486</width>
           <height>566</height>
          </rect>
         </property>
@@ -75,7 +75,19 @@
         </layout>
        </widget>
       </widget>
-      <widget class="Grapher" name="graph" native="true"/>
+      <widget class="QFrame" name="frame">
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Raised</enum>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <item>
+         <widget class="Grapher" name="graph" native="true"/>
+        </item>
+       </layout>
+      </widget>
      </widget>
     </item>
    </layout>
@@ -172,34 +184,34 @@
    </hints>
   </connection>
   <connection>
-   <sender>windowSettings</sender>
-   <signal>rectChanged(QRectF)</signal>
-   <receiver>graph</receiver>
-   <slot>setWindow(QRectF)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>305</x>
-     <y>33</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>630</x>
-     <y>106</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>newGraphButton</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
    <slot>newGraph()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>263</x>
-     <y>55</y>
+     <x>324</x>
+     <y>71</y>
     </hint>
     <hint type="destinationlabel">
      <x>273</x>
      <y>-2</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>windowSettings</sender>
+   <signal>rectChanged(QRectF)</signal>
+   <receiver>graph</receiver>
+   <slot>setWindow(QRectF)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>218</x>
+     <y>33</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>506</x>
+     <y>113</y>
     </hint>
    </hints>
   </connection>
