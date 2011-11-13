@@ -68,8 +68,8 @@ IF (GSL_FOUND)
      endif(NOT GSL_FIND_QUIETLY)
 ELSE (GSL_FOUND)
      if (GSL_FIND_REQUIRED)
-	MESSAGE (STATUS "GNU Scientific Library not found. "
-                        "Tables' solver plugin won't be compiled.")
+	MESSAGE (FATAL_ERROR "GNU Scientific Library not found. "
+                        "It's required!")
      endif (GSL_FIND_REQUIRED)
 ENDIF (GSL_FOUND)
 
