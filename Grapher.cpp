@@ -47,17 +47,18 @@ void Graph::reset(const Equation& rel, const Variable& _x, const Variable& _y) {
     resubstitute();
 }
 
-QImage iterateOnce(Graph* g) {
-    g->iterate();
-    return g->draw();
-}
-
-void Graph::restart(const QTransform& t, const QTransform& ti, int _width, int _height) {
+void Graph::setupRestart(const QTransform& t, int _width, int _height) {
     future.cancel();
     future.waitForFinished();
     width = _width;
     height = _height;
     transform = t;
+    future = QtConcurrent::run(boost::bind(&Graph::restart, this));
+    watcher->setFuture(future);
+}
+
+QImage Graph::restart() {
+    QTransform ti = transform.inverted();
     px.reset(new Number[width * height]);
     py.reset(new Number[width * height]);
     resubstitute();
@@ -91,7 +92,7 @@ void Graph::restart(const QTransform& t, const QTransform& ti, int _width, int _
     for (std::size_t i = 0; i < size; ++i) {
         QPointF pt(px[i], py[i]);
         QPointF correction = QPointF(gx[i], gy[i]) * (p[i] / (gx[i] * gx[i] + gy[i] * gy[i]));
-        correction = (pt * t) - ((pt - correction) * t);
+        correction = (pt * transform) - ((pt - correction) * transform);
         qreal len = correction.x() * correction.x() + correction.y() * correction.y();
         if (len < 200) {
             px[numPts] = pt.x();
@@ -99,16 +100,14 @@ void Graph::restart(const QTransform& t, const QTransform& ti, int _width, int _
             ++numPts;
         }
     }
-    img = draw();
-    future = QtConcurrent::run(&iterateOnce, this);
-    watcher->setFuture(future);
+    return draw();
 }
 
 void Graph::iterateAgain() {
     future.waitForFinished();
     if (future.isCanceled()) return;
     img = future.result();
-    future = QtConcurrent::run(&iterateOnce, this);
+    future = QtConcurrent::run(boost::bind(&Graph::iterate, this));
     watcher->setFuture(future);
     parent->update();
 }
@@ -140,7 +139,7 @@ void Graph::resubstitute() {
     sub.reset(eqn->substitute(s));
 }
 
-void Graph::iterate() {
+QImage Graph::iterate() {
     std::size_t size = numPts;
     VectorR gx  = dx->evaluateVector(size),
             gy  = dy->evaluateVector(size),
@@ -184,6 +183,7 @@ void Graph::iterate() {
     delete[] gx2;
     delete[] gy2;
     delete[] gxy;
+    return draw();
 }
 
 void Grapher::setWindow(QRectF rect) {
@@ -198,16 +198,10 @@ void Grapher::resized() {
     QPointF tl = sceneRect.topLeft();
     t.translate(-tl.x(), -scenesize.height()-tl.y());
     transform = t;
-    QTransform ti = t.inverted();
 
-    for (QMap<QObject*, Graph*>::const_iterator p = graphs.begin(); p != graphs.end(); ++p) {
-        if (!p.value()->valid) continue;
-        QMap<QObject*, QFuture<void> >::iterator it = graphFutures.find(p.key());
-        if (it != graphFutures.end()) {
-            it.value().cancel();
-            it.value().waitForFinished();
-        }
-        graphFutures[p.key()] = QtConcurrent::run(boost::bind(&Graph::restart, p.value(), t, ti, width(), height()));
+    foreach (Graph* graph, graphs) {
+        if (!graph->valid) continue;
+        graph->setupRestart(t, width(), height());
     }
 }
 /*
@@ -246,12 +240,5 @@ void Grapher::changeEquation(QObject* id, Equation* eqn) {
     Graph* graph = graphs[id];
     graph->reset(*eqn, x, y);
     delete eqn;
-    QTransform ti = transform.inverted();
-    QMap<QObject*, QFuture<void> >::iterator it = graphFutures.find(id);
-    if (it != graphFutures.end()) {
-        it.value().cancel();
-        it.value().waitForFinished();
-    }
-    graphFutures[id] = QtConcurrent::run(boost::bind(&Graph::restart, graph, transform, ti, width(), height()));
-    update();
+    graph->setupRestart(transform, width(), height());
 }

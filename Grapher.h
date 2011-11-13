@@ -16,28 +16,30 @@ class Grapher;
 class Graph : QObject {
     Q_OBJECT
     Grapher* parent;
+    
+    QFuture<QImage> future;
     QFutureWatcher<QImage>* watcher;
     int width, height;
-public:
-    bool valid;
-    boost::scoped_ptr<Expression> eqn, _dx, _dy;
     Variable x, y;
+    boost::scoped_ptr<Expression> eqn, _dx, _dy;
+    boost::scoped_ptr<Expression> sub, dx, dy;
     boost::scoped_array<Number> px, py;
     std::size_t numPts;
-    boost::scoped_ptr<Expression> sub, dx, dy;
-    QImage img;
     QTransform transform;
-    QFuture<QImage> future;
-    QFuture<void> setupFuture;
+    
+    QImage restart();
+    QImage iterate();
+private slots:
+    void iterateAgain();
+public:
+    bool valid;
+    QImage img;
     Graph(Grapher* p);
     ~Graph();
     void reset(const Equation& rel, const Variable& x, const Variable& y);
-    void restart(const QTransform& t, const QTransform& ti, int width, int height);
+    void setupRestart(const QTransform& t, int width, int height);
     void resubstitute();
-    void iterate();
     QImage draw();
-public slots:
-    void iterateAgain();
 };
 
 class Grapher : public QWidget {
@@ -47,7 +49,6 @@ class Grapher : public QWidget {
     QTransform transform;
 public:
     QMap<QObject*, Graph*> graphs;
-    QMap<QObject*, QFuture<void> > graphFutures;
 	Grapher(QWidget* parent = NULL);
     ~Grapher();
     Variable getX() const { return x; }
