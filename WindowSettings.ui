@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>WindowSettings</class>
+ <widget class="QGroupBox" name="WindowSettings">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>102</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>GroupBox</string>
+  </property>
+  <property name="title">
+   <string>Window settings</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="1">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string>Min</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="2">
+    <widget class="QLabel" name="label_5">
+     <property name="text">
+      <string>Max</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>x</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QLineEdit" name="xMin">
+     <property name="inputMask">
+      <string/>
+     </property>
+     <property name="text">
+      <string>-5</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="2">
+    <widget class="QLineEdit" name="xMax">
+     <property name="text">
+      <string>5</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>y</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QLineEdit" name="yMin">
+     <property name="text">
+      <string>-5</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="2">
+    <widget class="QLineEdit" name="yMax">
+     <property name="text">
+      <string>5</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>xMin</sender>
+   <signal>editingFinished()</signal>
+   <receiver>WindowSettings</receiver>
+   <slot>onChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>119</x>
+     <y>61</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>165</x>
+     <y>0</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>xMax</sender>
+   <signal>editingFinished()</signal>
+   <receiver>WindowSettings</receiver>
+   <slot>onChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>58</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>287</x>
+     <y>13</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>yMin</sender>
+   <signal>editingFinished()</signal>
+   <receiver>WindowSettings</receiver>
+   <slot>onChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>87</x>
+     <y>81</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>86</x>
+     <y>24</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>yMax</sender>
+   <signal>editingFinished()</signal>
+   <receiver>WindowSettings</receiver>
+   <slot>onChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>364</x>
+     <y>82</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>361</x>
+     <y>28</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>onChanged()</slot>
+ </slots>
+</ui>
