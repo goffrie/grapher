@@ -23,7 +23,7 @@ class Graph : QObject {
     Variable x, y;
     boost::scoped_ptr<Expression> eqn, _dx, _dy;
     boost::scoped_ptr<Expression> sub, dx, dy;
-    boost::scoped_array<Number> px, py;
+    boost::scoped_array<Number> m_px, m_py;
     std::size_t numPts;
     QTransform transform;
     

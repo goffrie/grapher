@@ -59,8 +59,8 @@ void Graph::setupRestart(const QTransform& t, int _width, int _height) {
 
 QImage Graph::restart() {
     QTransform ti = transform.inverted();
-    px.reset(new Number[width * height]);
-    py.reset(new Number[width * height]);
+    m_px.reset(new Number[width * height]);
+    m_py.reset(new Number[width * height]);
     resubstitute();
     numPts = 0;
     std::size_t size = 0;
@@ -68,20 +68,20 @@ QImage Graph::restart() {
         for (int x = 0; x < width; x += 3) {
             {
             QPointF pt = QPointF(x, y) * ti;
-            px[size] = pt.x();
-            py[size] = pt.y();
+            m_px[size] = pt.x();
+            m_py[size] = pt.y();
             ++size;
             }
             {
             QPointF pt = QPointF(x + 2, y + 1) * ti;
-            px[size] = pt.x();
-            py[size] = pt.y();
+            m_px[size] = pt.x();
+            m_py[size] = pt.y();
             ++size;
             }
             {
             QPointF pt = QPointF(x + 1, y + 2) * ti;
-            px[size] = pt.x();
-            py[size] = pt.y();
+            m_px[size] = pt.x();
+            m_py[size] = pt.y();
             ++size;
             }
         }
@@ -90,13 +90,13 @@ QImage Graph::restart() {
                                 gy(dy->evaluateVector(size)),
                                 p(sub->evaluateVector(size));
     for (std::size_t i = 0; i < size; ++i) {
-        QPointF pt(px[i], py[i]);
+        QPointF pt(m_px[i], m_py[i]);
         QPointF correction = QPointF(gx[i], gy[i]) * (p[i] / (gx[i] * gx[i] + gy[i] * gy[i]));
         correction = (pt * transform) - ((pt - correction) * transform);
         qreal len = correction.x() * correction.x() + correction.y() * correction.y();
         if (len < 200) {
-            px[numPts] = pt.x();
-            py[numPts] = pt.y();
+            m_px[numPts] = pt.x();
+            m_py[numPts] = pt.y();
             ++numPts;
         }
     }
@@ -118,7 +118,7 @@ QImage Graph::draw() {
     QPainter painter(&_img);
     painter.setPen(Qt::black);
     for (std::size_t i = 0; i < numPts; ++i) {
-        painter.drawPoint(QPointF(px[i], py[i]) * transform);
+        painter.drawPoint(QPointF(m_px[i], m_py[i]) * transform);
     }
     painter.end();
     return _img;
@@ -131,7 +131,7 @@ void Grapher::addGraph(QObject* id) {
 
 void Graph::resubstitute() {
     Expression::Subst s;
-    External X(px.get()), Y(py.get());
+    External X(m_px.get()), Y(m_py.get());
     s.insert(std::make_pair(x, &X));
     s.insert(std::make_pair(y, &Y));
     dx.reset(_dx->substitute(s));
@@ -146,7 +146,9 @@ QImage Graph::iterate() {
             p   = sub->evaluateVector(size),
             gx2 = new Number[size],
             gy2 = new Number[size],
-            gxy = new Number[size];
+            gxy = new Number[size],
+            px = m_px.get(),
+            py = m_py.get();
     // correcting factor = (gx, gy) * p / (gx * gx + gy * gy)
     // (gx2, gy2) = (gx^2, gy^2) in place
     for (std::size_t i = 0; i < size; ++i) {
