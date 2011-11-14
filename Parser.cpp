@@ -8,6 +8,7 @@
 #include <boost/variant.hpp>
 #include <boost/variant/apply_visitor.hpp>
 #include <boost/unordered_map.hpp>
+#include <QDebug>
 
 bool isIntegral(Number a) {
     const Number b = floor(a + 0.5);
@@ -19,9 +20,20 @@ int rnd(Number a) {
     return static_cast<int>(a + 0.5);
 }
 
+struct FunctionTag {
+};
+struct VariableTag {
+};
+template<class Tag> struct Name : public std::string {
+    explicit Name(const std::string& s) : std::string(s) { }
+};
+
 struct printer : public boost::static_visitor<> {
-    void operator()(std::string s) const {
+    void operator()(const std::string& s) const {
         std::cerr << s << std::endl;
+    }
+    template<class T> void operator()(const Name<T>& s) const {
+        std::cerr << (std::string&)s << std::endl;
     }
     void operator()(char s) const {
         std::cerr << s << std::endl;
@@ -31,7 +43,7 @@ struct printer : public boost::static_visitor<> {
     }
 };
 struct shunt_visitor : public boost::static_visitor<> {
-    typedef boost::variant<std::string, char> optoken;
+    typedef boost::variant<Name<FunctionTag>, char> optoken;
     std::stack<Thing*> output;
     std::stack<optoken> operators;
     std::stack<int> argcounts;
@@ -63,15 +75,12 @@ struct shunt_visitor : public boost::static_visitor<> {
             default: throw Parser::UnknownOperatorException(op);
         }
     }
-    void operator()(std::string name) {
-        boost::unordered_map<std::string, Expression*>::const_iterator it = variables.find(name);
-        if (it != variables.end()) {
-            output.push(it->second->copy());
-        } else {
-            // a function?
-            operators.push(name);
-            argcounts.push(1);
-        }
+    void operator()(const Name<FunctionTag>& name) {
+        operators.push(name);
+        argcounts.push(1);
+    }
+    void operator()(const Name<VariableTag>& name) {
+        output.push(variables.find(name)->second->copy());
     }
     Expression* pop_expression() {
         if (output.empty()) throw Parser::UnexpectedOperatorException();
@@ -82,7 +91,7 @@ struct shunt_visitor : public boost::static_visitor<> {
         return ret;
     }
     void apply_operator(optoken op) {
-        if (std::string* _func = boost::get<std::string>(&op)) {
+        if (Name<FunctionTag>* _func = boost::get<Name<FunctionTag> >(&op)) {
             std::string& func = *_func;
             if (argcounts.empty()) throw Parser::ArgumentCountException("before " + func);
             int argc = argcounts.top();
@@ -135,7 +144,8 @@ if (func == #name) { \
                 case '=': output.push(new Equation(a, b)); break;
             }
         } else {
-            throw "EVERYTHING'S BAD";
+            qDebug() << "EVERYTHING'S BAD";
+            std::terminate();
         }
     }
     void pop_apply() {
@@ -201,12 +211,7 @@ if (func == #name) { \
 };
 
 Thing* Parser::parse(const std::string& str, const boost::unordered_map<std::string, Expression*>& variables) {
-    assert(isIntegral(1.0));
-    assert(isIntegral(2.0));
-    assert(!isIntegral(2.1));
-    assert(!isIntegral(515.02));
-    std::cerr << str << std::endl;
-    typedef boost::variant<std::string, char, Number> token;
+    typedef boost::variant<Name<FunctionTag>, Name<VariableTag>, char, Number> token;
     std::list<token> tokens;
     for (std::size_t i = 0; i < str.size(); ++i) {
         char c = str[i];
@@ -225,13 +230,19 @@ Thing* Parser::parse(const std::string& str, const boost::unordered_map<std::str
             while ((i+1) < str.size() && std::isalnum(str[i+1])) {
                 name += str[++i];
             }
-            tokens.push_back(name);
+            if (variables.find(name) != variables.end()) {
+                tokens.push_back(Name<VariableTag>(name));
+            } else {
+                tokens.push_back(Name<FunctionTag>(name));
+            }
         } else {
             tokens.push_back(c);
         }
     }
     for (std::list<token>::iterator next = tokens.begin(), p = next++; next != tokens.end(); p = next++) {
-        if (boost::get<char>(&*p) == NULL && boost::get<char>(&*next) == NULL) {
+        char* a = boost::get<char>(&*p),
+            * b = boost::get<char>(&*next);
+        if ((!a || *a == ')') && (!b || *b == '(')) {
             next = tokens.insert(next, '*');
         }
     }

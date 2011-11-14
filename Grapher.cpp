@@ -2,8 +2,8 @@
 
 #include <iostream>
 #include <QPainter>
-#include <QTimer>
 #include <QDebug>
+#include <QtGlobal>
 #include <QtConcurrentMap>
 #include <QtConcurrentRun>
 #include <QFutureWatcher>
@@ -17,8 +17,11 @@ Grapher::~Grapher() {
     foreach (Graph* graph, graphs) delete graph;
 }
 
-Graph::Graph(Grapher* p) : parent(p), watcher(new QFutureWatcher<QImage>(this)), valid(false) {
+Graph::Graph(Grapher* parent): QObject(parent), watcher(new QFutureWatcher<QImage>(this)), valid(false) {
     connect(watcher, SIGNAL(finished()), this, SLOT(iterateAgain()));
+}
+
+ImplicitGraph::ImplicitGraph(Grapher* p) : Graph(p) {
 }
 
 Graph::~Graph() {
@@ -26,7 +29,7 @@ Graph::~Graph() {
     future.waitForFinished();
 }
 
-void Graph::reset(const Equation& rel, const Variable& _x, const Variable& _y) {
+void ImplicitGraph::reset(const Equation& rel, const Variable& _x, const Variable& _y) {
     future.cancel();
     future.waitForFinished();
     valid = true;
@@ -57,7 +60,7 @@ void Graph::setupRestart(const QTransform& t, int _width, int _height) {
     watcher->setFuture(future);
 }
 
-QImage Graph::restart() {
+QImage ImplicitGraph::restart() {
     QTransform ti = transform.inverted();
     m_px.reset(new Number[width * height]);
     m_py.reset(new Number[width * height]);
@@ -103,16 +106,16 @@ QImage Graph::restart() {
     return draw();
 }
 
-void Graph::iterateAgain() {
+void ImplicitGraph::iterateAgain() {
     future.waitForFinished();
     if (future.isCanceled()) return;
-    img = future.result();
-    future = QtConcurrent::run(boost::bind(&Graph::iterate, this));
+    m_img = future.result();
+    future = QtConcurrent::run(boost::bind(&ImplicitGraph::iterate, this));
     watcher->setFuture(future);
-    parent->update();
+    qobject_cast<QWidget*>(parent())->update();
 }
 
-QImage Graph::draw() {
+QImage ImplicitGraph::draw() {
     QImage _img(width, height, QImage::Format_ARGB32_Premultiplied);
     _img.fill(qRgba(0, 0, 0, 0));
     QPainter painter(&_img);
@@ -125,11 +128,11 @@ QImage Graph::draw() {
 }
 
 void Grapher::addGraph(QObject* id) {
-    graphs.insert(id, new Graph(this));
+    graphs.insert(id, new ImplicitGraph(this));
     connect(id, SIGNAL(destroyed(QObject*)), SLOT(idDeleted(QObject*)));
 }
 
-void Graph::resubstitute() {
+void ImplicitGraph::resubstitute() {
     Expression::Subst s;
     External X(m_px.get()), Y(m_py.get());
     s.insert(std::make_pair(x, &X));
@@ -139,7 +142,7 @@ void Graph::resubstitute() {
     sub.reset(eqn->substitute(s));
 }
 
-QImage Graph::iterate() {
+QImage ImplicitGraph::iterate() {
     std::size_t size = numPts;
     VectorR gx  = dx->evaluateVector(size),
             gy  = dy->evaluateVector(size),
@@ -221,7 +224,7 @@ void Grapher::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     foreach (Graph* graph, graphs) {
         if (!graph->valid) continue;
-        painter.drawImage(0, 0, graph->img);
+        painter.drawImage(0, 0, graph->img());
     }
 }
 
@@ -239,7 +242,8 @@ void Grapher::idDeleted(QObject* id) {
 }
 
 void Grapher::changeEquation(QObject* id, Equation* eqn) {
-    Graph* graph = graphs[id];
+    ImplicitGraph* graph = qobject_cast<ImplicitGraph*>(graphs[id]);
+    Q_ASSERT(graph != NULL);
     graph->reset(*eqn, x, y);
     delete eqn;
     graph->setupRestart(transform, width(), height());

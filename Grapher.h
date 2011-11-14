@@ -13,33 +13,44 @@ class QResizeEvent;
 
 class Grapher;
 
-class Graph : QObject {
+class Graph : public QObject {
     Q_OBJECT
-    Grapher* parent;
-    
+public:
+    bool valid;
+    Graph(Grapher* parent);
+    virtual ~Graph();
+    void setupRestart(const QTransform& t, int width, int height);
+    QImage img() { return m_img; }
+protected:
     QFuture<QImage> future;
     QFutureWatcher<QImage>* watcher;
     int width, height;
+    QTransform transform;
+    QImage m_img;
+    virtual QImage restart() = 0;
+protected slots:
+    virtual void iterateAgain() = 0;
+};
+
+class ImplicitGraph : public Graph {
+    Q_OBJECT
+    
     Variable x, y;
     boost::scoped_ptr<Expression> eqn, _dx, _dy;
     boost::scoped_ptr<Expression> sub, dx, dy;
     boost::scoped_array<Number> m_px, m_py;
     std::size_t numPts;
-    QTransform transform;
     
-    QImage restart();
     QImage iterate();
-private slots:
-    void iterateAgain();
 public:
-    bool valid;
-    QImage img;
-    Graph(Grapher* p);
-    ~Graph();
+    ImplicitGraph(Grapher* parent);
     void reset(const Equation& rel, const Variable& x, const Variable& y);
-    void setupRestart(const QTransform& t, int width, int height);
     void resubstitute();
     QImage draw();
+protected:
+    virtual QImage restart();
+protected slots:
+    virtual void iterateAgain();
 };
 
 class Grapher : public QWidget {
