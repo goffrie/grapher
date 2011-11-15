@@ -2,6 +2,29 @@
 
 #include <bitset>
 
+#define UNARY_FUNCTION(Name, func, sfunc) \
+Number Name::evaluate(Number _a) const { return sfunc(_a); } \
+Number Name::evaluate() const { return sfunc(a->evaluate()); } \
+Vector Name::evaluateVector(std::size_t size) const { \
+    VectorR _a = a->evaluateVector(size); \
+    for (std::size_t i = 0; i < size; ++i) _a[i] = sfunc(_a[i]); \
+    return _a; \
+}
+
+UNARY_FUNCTION(Neg, -, -)
+UNARY_FUNCTION(Exp, exp, std::exp)
+UNARY_FUNCTION(Ln, log, std::log)
+UNARY_FUNCTION(Sqrt, sqrt, std::sqrt)
+UNARY_FUNCTION(Sin, sin, std::sin)
+UNARY_FUNCTION(Cos, cos, std::cos)
+UNARY_FUNCTION(Tan, tan, std::tan)
+UNARY_FUNCTION(Asin, asin, std::asin)
+UNARY_FUNCTION(Acos, acos, std::acos)
+UNARY_FUNCTION(Atan, atan, std::atan)
+UNARY_FUNCTION(Gamma, gamma, gsl_sf_gamma)
+
+#undef UNARY_FUNCTION
+
 Vector Constant::evaluateVector(size_t size) const {
     VectorR r = new Number[size];
     Number _c = c;
@@ -104,410 +127,327 @@ Vector Div::evaluateVector(std::size_t size) const {
     return _a;
 }
 
-Vector Neg::evaluateVector(std::size_t size) const {
-    VectorR _a = a->evaluateVector(size);
-    for (std::size_t i = 0; i < size; ++i) _a[i] = -_a[i];
-    return _a;
+EPtr UnaryOp::simplify() const {
+    EPtr as = a->simplify();
+    Constant* ac = dynamic_cast<Constant*>(as.get());
+    if (ac != NULL) {
+        return Constant::create(evaluate(ac->c));
+    }
+    return EPtr(construct(std::move(as)));
 }
 
-Expression* UnaryOp::simplify() const {
-    Expression* as = a->simplify();
-    Constant* ac = dynamic_cast<Constant*>(as);
+EPtr Neg::simplify() const {
+    EPtr as = a->simplify();
+    Constant* ac = dynamic_cast<Constant*>(as.get());
     if (ac != NULL) {
-        Number acc = ac->c;
-        delete ac;
-        return new Constant(evaluate(acc));
+        return Constant::create(evaluate(ac->c));
     }
-    return construct(as);
-}
-
-Expression* Neg::simplify() const {
-    Expression* as = a->simplify();
-    Constant* ac = dynamic_cast<Constant*>(as);
-    if (ac != NULL) {
-        Number acc = ac->c;
-        delete ac;
-        return new Constant(evaluate(acc));
-    }
-    Neg* an = dynamic_cast<Neg*>(ac);
+    Neg* an = dynamic_cast<Neg*>(as.get());
     if (an != NULL) {
-        Expression* r = an->a->copy();
-        delete an;
-        return r;
+        return an->a->ecopy();
     }
-    return new Neg(as);
+    return Neg::create(std::move(as));
 }
 
-Expression* Add::simplify() const {
-    Expression* as = a->simplify();
-    Expression* bs = b->simplify();
-    Constant* ac = dynamic_cast<Constant*>(as);
-    Constant* bc = dynamic_cast<Constant*>(bs);
+EPtr Add::simplify() const {
+    EPtr as = a->simplify();
+    EPtr bs = b->simplify();
+    Constant* ac = dynamic_cast<Constant*>(as.get());
+    Constant* bc = dynamic_cast<Constant*>(bs.get());
     Number acc = ac ? ac->c : 0;
     Number bcc = bc ? bc->c : 0;
     if (ac && bc) {
-        delete as;
-        delete bs;
-        return new Constant(acc + bcc);
+        return Constant::create(acc + bcc);
     }
     // 0 + b = b
     if (ac && acc == 0) {
-        delete as;
-        return bs;
+        return std::move(bs);
     }
     // a + 0 = a
     if (bc && bcc == 0) {
-        delete bs;
-        return as;
+        return std::move(as);
     }
-    Neg* an = dynamic_cast<Neg*>(as);
-    Neg* bn = dynamic_cast<Neg*>(bs);
+    Neg* an = dynamic_cast<Neg*>(as.get());
+    Neg* bn = dynamic_cast<Neg*>(bs.get());
     // (-a) + (-b) = -(a+b)
     if (an && bn) {
-        Neg* r = new Neg(new Add(an->a->copy(), bn->a->copy()));
-        delete as;
-        delete bs;
-        return r;
+        return Neg::create(Add::create(an->a->ecopy(), bn->a->ecopy()));
     }
     // (-a) + b = b-a
     if (an) {
-        Sub* r = new Sub(bs, an->a->copy());
-        delete as;
-        return r;
+        return Sub::create(std::move(bs), an->a->ecopy());
     }
     // a + (-b) = a-b
     if (bn) {
-        Sub* r = new Sub(as, bn->a->copy());
-        delete bs;
-        return r;
+        return Sub::create(std::move(as), bn->a->ecopy());
     }
-    return new Add(as, bs);
+    return Add::create(std::move(as), std::move(bs));
 }
 
-Expression* Sub::simplify() const {
-    Add* _r = new Add(a->copy(), new Neg(b->copy()));
-    Expression* r = _r->simplify();
-    delete _r;
-    return r;
+EPtr Sub::simplify() const {
+    std::unique_ptr<Add> _r(new Add(EPtr(a->copy()), EPtr(new Neg(EPtr(b->copy())))));
+    return _r->simplify();
 }
 
-Expression* Mul::simplify() const {
-    Expression* as = a->simplify();
-    Expression* bs = b->simplify();
-    Constant* ac = dynamic_cast<Constant*>(as);
-    Constant* bc = dynamic_cast<Constant*>(bs);
+EPtr Mul::simplify() const {
+    EPtr as(a->simplify());
+    EPtr bs(b->simplify());
+    Constant* ac = dynamic_cast<Constant*>(as.get());
+    Constant* bc = dynamic_cast<Constant*>(bs.get());
     Number acc = ac ? ac->c : 0;
     Number bcc = bc ? bc->c : 0;
     // constant folding
     if (ac && bc) {
-        delete as;
-        delete bs;
-        return new Constant(acc * bcc);
+        return Constant::create(acc * bcc);
     }
     // 0 * b = 0
     // a * 0 = 0
     if ((ac && acc == 0) || (bc && bcc == 0)) {
-        delete as;
-        delete bs;
-        return new Constant(0);
+        return EPtr(new Constant(0));
     }
     // 1 * b = b
     if (ac && acc == 1) {
-        delete as;
-        return bs;
+        return std::move(bs);
     }
     // a * 1 = a
     if (bc && bcc == 1) {
-        delete bs;
-        return as;
+        return std::move(as);
     }
-    Neg* an = dynamic_cast<Neg*>(as);
-    Neg* bn = dynamic_cast<Neg*>(bs);
+    Neg* an = dynamic_cast<Neg*>(as.get());
+    Neg* bn = dynamic_cast<Neg*>(bs.get());
     // (-a) * (-b) = a * b
     if (an && bn) {
-        Mul* _r = new Mul(an->a->copy(), bn->a->copy());
-        delete as;
-        delete bs;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Mul> _r(new Mul(EPtr(an->a->copy()), EPtr(bn->a->copy())));
+        return _r->simplify();
     }
     // (-a) * b = -(a * b)
     if (an) {
-        Neg* _r = new Neg(new Mul(an->a->copy(), bs));
-        delete as;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Neg> _r(new Neg(EPtr(new Mul(EPtr(an->a->copy()), std::move(bs)))));
+        return _r->simplify();
     }
     // a * (-b) = -(a * b)
     if (an) {
-        Neg* _r = new Neg(new Mul(as, bn->a->copy()));
-        delete bs;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Neg> _r(new Neg(EPtr(new Mul(std::move(as), EPtr(bn->a->copy())))));
+        return _r->simplify();
     }
-    Div* ad = dynamic_cast<Div*>(as);
-    Div* bd = dynamic_cast<Div*>(bs);
+    Div* ad = dynamic_cast<Div*>(as.get());
+    Div* bd = dynamic_cast<Div*>(bs.get());
     // (aa/ab) * (ba/bb) = (aa * ba) / (ab * bb)
     if (ad && bd) {
-        Div* _r = new Div(new Mul(ad->a->copy(), bd->a->copy()), new Mul(ad->b->copy(), bd->b->copy()));
-        delete as;
-        delete bs;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Div> _r(new Div(EPtr(new Mul(EPtr(ad->a->copy()), EPtr(bd->a->copy()))), EPtr(new Mul(EPtr(ad->b->copy()), EPtr(bd->b->copy())))));
+        return _r->simplify();
     }
     // (aa/ab) * b = (aa * b) / (ab)
     if (ad) {
-        Div* _r = new Div(new Mul(ad->a->copy(), bs), ad->b->copy());
-        delete as;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Div> _r(new Div(EPtr(new Mul(EPtr(ad->a->copy()), std::move(bs))), EPtr(ad->b->copy())));
+        return _r->simplify();
     }
     // a * (ba/bb) = (a * ba) / (bb)
     if (bd) {
-        Div* _r = new Div(new Mul(as, bd->a->copy()), bd->b->copy());
-        delete bs;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Div> _r(new Div(EPtr(new Mul(std::move(as), EPtr(bd->a->copy()))), EPtr(bd->b->copy())));
+        return _r->simplify();
     }  
-    return new Mul(as, bs);
+    return EPtr(new Mul(std::move(as), std::move(bs)));
 }
 
-Expression* Div::simplify() const {
-    Expression* as = a->simplify();
-    Expression* bs = b->simplify();
-    Constant* ac = dynamic_cast<Constant*>(as);
-    Constant* bc = dynamic_cast<Constant*>(bs);
+EPtr Div::simplify() const {
+    EPtr as(a->simplify());
+    EPtr bs(b->simplify());
+    Constant* ac = dynamic_cast<Constant*>(as.get());
+    Constant* bc = dynamic_cast<Constant*>(bs.get());
     Number acc = ac ? ac->c : 0;
     Number bcc = bc ? bc->c : 0;
     // constant folding
     if (ac && bc) {
-        delete as;
-        delete bs;
-        return new Constant(acc / bcc);
+        return EPtr(new Constant(acc / bcc));
     }
     // 0 / b = 0
     if (ac && acc == 0) {
-        delete as;
-        delete bs;
-        return new Constant(0);
+        return EPtr(new Constant(0));
     }
     // a / 0 = NaN
     if (bc && bcc == 0) {
-        delete as;
-        delete bs;
-        return new Constant(std::numeric_limits<Number>::quiet_NaN());
+        return EPtr(new Constant(std::numeric_limits<Number>::quiet_NaN()));
     }
     // a / 1 = a
     if (bc && bcc == 1) {
-        delete bs;
-        return as;
+        return std::move(as);
     }
-    Neg* an = dynamic_cast<Neg*>(as);
-    Neg* bn = dynamic_cast<Neg*>(bs);
+    Neg* an = dynamic_cast<Neg*>(as.get());
+    Neg* bn = dynamic_cast<Neg*>(bs.get());
     // (-a) / (-b) = a / b
     if (an && bn) {
-        Div* _r = new Div(an->a->copy(), bn->a->copy());
-        delete as;
-        delete bs;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Div> _r(new Div(EPtr(an->a->copy()), EPtr(bn->a->copy())));
+        return _r->simplify();
     }
     // (-a) / b = -(a * b)
     if (an) {
-        Neg* _r = new Neg(new Div(an->a->copy(), bs));
-        delete as;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Neg> _r(new Neg(EPtr(new Div(EPtr(an->a->copy()), std::move(bs)))));
+        return _r->simplify();
     }
     // a * (-b) = -(a * b)
     if (an) {
-        Neg* _r = new Neg(new Div(as, bn->a->copy()));
-        delete bs;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Neg> _r(new Neg(EPtr(new Div(std::move(as), EPtr(bn->a->copy())))));
+        return _r->simplify();
     }
-    Div* ad = dynamic_cast<Div*>(as);
-    Div* bd = dynamic_cast<Div*>(bs);
+    Div* ad = dynamic_cast<Div*>(as.get());
+    Div* bd = dynamic_cast<Div*>(bs.get());
     // (aa/ab) / (ba/bb) = (aa * bb) / (ab * ba)
     if (ad && bd) {
-        Div* _r = new Div(new Mul(ad->a->copy(), bd->b->copy()), new Mul(ad->b->copy(), bd->a->copy()));
-        delete as;
-        delete bs;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Div> _r(new Div(Mul::create(ad->a->ecopy(), bd->b->ecopy()), Mul::create(ad->b->ecopy(), bd->a->ecopy())));
+        return _r->simplify();
     }
     // (aa/ab) / b = aa / (ab * b)
     if (ad) {
-        Div* _r = new Div(ad->a->copy(), new Mul(ad->b->copy(), bs));
-        delete as;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Div> _r(new Div(EPtr(ad->a->copy()), EPtr(new Mul(EPtr(ad->b->copy()), std::move(bs)))));
+        return _r->simplify();
     }
     // a / (ba/bb) = (a * bb) / (ba)
     if (bd) {
-        Div* _r = new Div(new Mul(as, bd->b->copy()), bd->a->copy());
-        delete bs;
-        Expression* r = _r->simplify();
-        delete _r;
-        return r;
+        std::unique_ptr<Div> _r(new Div(EPtr(new Mul(std::move(as), EPtr(bd->b->copy()))), EPtr(bd->a->copy())));
+        return _r->simplify();
     }  
-    return new Div(as, bs);
+    return EPtr(new Div(std::move(as), std::move(bs)));
 }
 
-Expression* Pow::simplify() const {
-    Expression* as = a->simplify();
-    Expression* bs = b->simplify();
-    Constant* ac = dynamic_cast<Constant*>(as);
-    Constant* bc = dynamic_cast<Constant*>(bs);
+EPtr Pow::simplify() const {
+    EPtr as(a->simplify());
+    EPtr bs(b->simplify());
+    Constant* ac = dynamic_cast<Constant*>(as.get());
+    Constant* bc = dynamic_cast<Constant*>(bs.get());
     Number acc = ac ? ac->c : 0;
     Number bcc = bc ? bc->c : 0;
     // constant folding
     if (ac && bc) {
-        delete as;
-        delete bs;
-        return new Constant(std::pow(acc, bcc));
+        return EPtr(new Constant(std::pow(acc, bcc)));
     }
     // a ^ 0 = 1; (0^0 = 1)
     // 1 ^ b = 1
     if ((bc && bcc == 0) || (ac && acc == 1)) {
-        delete as;
-        delete bs;
-        return new Constant(1);
+        return EPtr(new Constant(1));
     }
-    // 0 ^ b = 0
+/*    // 0 ^ b = 0
     if (ac && acc == 0) {
-        delete as;
-        delete bs;
-        return new Constant(0);
-    }
+        return EPtr(new Constant(0));
+    }*/
     // a ^ 1 = a
     if (bc && bcc == 1) {
-        delete bs;
-        return as;
+        return std::move(as);
     }
-    return new Pow(as, bs);
+    return EPtr(new Pow(std::move(as), std::move(bs)));
 }
 
-Expression* PowInt::simplify() const {
-    Expression* as = a->simplify();
-    Constant* ac = dynamic_cast<Constant*>(as);
+EPtr PowInt::simplify() const {
+    EPtr as(a->simplify());
+    Constant* ac = dynamic_cast<Constant*>(as.get());
     Number acc = ac ? ac->c : 0;
     // constant folding
     if (ac) {
-        delete as;
-        return new Constant(powi(acc, b));
+        return EPtr(new Constant(powi(acc, b)));
     }
     // a ^ 0 = 1; (0^0 = 1)
     // 1 ^ b = 1
     if ((b == 0) || (ac && acc == 1)) {
-        delete as;
-        return new Constant(1);
+        return EPtr(new Constant(1));
     }
-    // 0 ^ b = 0
+/*    // 0 ^ b = 0
     if (ac && acc == 0) {
-        delete as;
-        return new Constant(0);
-    }
+        return EPtr(new Constant(0));
+    }*/
     // a ^ 1 = a
     if (b == 1) {
-        return as;
+        return std::move(as);
     }
-    return new PowInt(as, b);
+    return EPtr(new PowInt(std::move(as), b));
+}
+
+// d(-u)/dx = -du/dx
+EPtr Neg::derivative(const Variable& var) const {
+    return Neg::create(a->derivative(var));
 }
 
 // de^u/dx = de^u/du * du/dx = e^u * du/dx
-Expression* Exp::derivative(const Variable& var) const {
-    return new Mul(copy(), a->derivative(var));
+EPtr Exp::derivative(const Variable& var) const {
+    return Mul::create(ecopy(), a->derivative(var));
 }
 // dln(u)/dx = dln(u)/du * du/dx = 1/u * du/dx
-Expression* Ln::derivative(const Variable& var) const {
-    return new Mul(new Div(new Constant(1), a->copy()), a->derivative(var));
+EPtr Ln::derivative(const Variable& var) const {
+    return Mul::create(Div::create(Constant::create(1), a->ecopy()), a->derivative(var));
 }
 // dsqrt(u)/dx = dsqrt(u)/du * du/dx = (1/2*sqrt(u)) * du/dx = (du/dx) / (2 * sqrt(u))
-Expression* Sqrt::derivative(const Variable& var) const {
-    return new Div(a->derivative(var), new Mul(new Constant(2), new Sqrt(a->copy())));
+EPtr Sqrt::derivative(const Variable& var) const {
+    return Div::create(a->derivative(var), Mul::create(Constant::create(2), Sqrt::create(a->ecopy())));
 }
 // dsin(u)/dx = dsin(u)/du * du/dx = cos(u) * du/dx
-Expression* Sin::derivative(const Variable& var) const {
-    return new Mul(new Cos(a->copy()), a->derivative(var));
+EPtr Sin::derivative(const Variable& var) const {
+    return Mul::create(Cos::create(a->ecopy()), a->derivative(var));
 }
 // dcos(u)/dx = dcos(u)/du * du/dx = -sin(u) * du/dx
-Expression* Cos::derivative(const Variable& var) const {
-    return new Neg(new Mul(new Sin(a->copy()), a->derivative(var)));
+EPtr Cos::derivative(const Variable& var) const {
+    return Neg::create(Mul::create(Sin::create(a->ecopy()), a->derivative(var)));
 }
 // dtan(u)/dx = dtan(u)/du * du/dx = (1 + tan^2(u)) * du/dx
-Expression* Tan::derivative(const Variable& var) const {
-    return new Mul(new Add(new Constant(1), new PowInt(new Tan(a->copy()), 2)), a->derivative(var));
+EPtr Tan::derivative(const Variable& var) const {
+    return Mul::create(Add::create(Constant::create(1), PowInt::create(Tan::create(a->ecopy()), 2)), a->derivative(var));
 }
 // d asin(u)/dx = d asin(u) / du * du/dx = (du/dx)/sqrt(1 - u^2)
-Expression* Asin::derivative(const Variable& var) const {
-    return new Div(a->derivative(var), new Sqrt(new Sub(new Constant(1), new PowInt(a->copy(), 2))));
+EPtr Asin::derivative(const Variable& var) const {
+    return Div::create(a->derivative(var), Sqrt::create(Sub::create(Constant::create(1), PowInt::create(a->ecopy(), 2))));
 }
 // d acos(u)/dx = d acos(u) / du * du/dx = -(du/dx)/sqrt(1 - u^2)
-Expression* Acos::derivative(const Variable& var) const {
-    return new Neg(new Div(a->derivative(var), new Sqrt(new Sub(new Constant(1), new PowInt(a->copy(), 2)))));
+EPtr Acos::derivative(const Variable& var) const {
+    return Neg::create(Div::create(a->derivative(var), Sqrt::create(Sub::create(Constant::create(1), PowInt::create(a->ecopy(), 2)))));
 }
 // d atan(u)/dx = d atan(u) / du * du/dx = (du/dx)/(1 + u^2)
-Expression* Atan::derivative(const Variable& var) const {
-    return new Div(a->derivative(var), new Add(new Constant(1), new PowInt(a->copy(), 2)));
+EPtr Atan::derivative(const Variable& var) const {
+    return Div::create(a->derivative(var), Add::create(Constant::create(1), PowInt::create(a->ecopy(), 2)));
 }
 
 // d(u+v)/dx = du/dx + dv/dx
-Expression* Add::derivative(const Variable& var) const {
-    return new Add(a->derivative(var), b->derivative(var));
+EPtr Add::derivative(const Variable& var) const {
+    return Add::create(a->derivative(var), b->derivative(var));
 }
 // d(u-v)/dx = du/dx - dv/dx
-Expression* Sub::derivative(const Variable& var) const {
-    return new Sub(a->derivative(var), b->derivative(var));
+EPtr Sub::derivative(const Variable& var) const {
+    return Sub::create(a->derivative(var), b->derivative(var));
 }
 // d(u*v)/dx = udv/dx + vdu/dx
-Expression* Mul::derivative(const Variable& var) const {
-    return new Add(new Mul(a->copy(), b->derivative(var)), new Mul(b->copy(), a->derivative(var)));
+EPtr Mul::derivative(const Variable& var) const {
+    return Add::create(Mul::create(a->ecopy(), b->derivative(var)), Mul::create(b->ecopy(), a->derivative(var)));
 }
 // d(u/v)/dx = (vdu/dx - udv/dx) / (u^2)
-Expression* Div::derivative(const Variable& var) const {
-    return new Div(
-                new Sub(new Mul(b->copy(), a->derivative(var)), new Mul(a->copy(), b->derivative(var))),
-                new PowInt(b->copy(), 2)
+EPtr Div::derivative(const Variable& var) const {
+    return Div::create(
+                Sub::create(Mul::create(b->ecopy(), a->derivative(var)), Mul::create(a->ecopy(), b->derivative(var))),
+                PowInt::create(b->ecopy(), 2)
             );
 }
 // d(u^v)/dx = d/dx e^(vlogu) = d(e^(vlogu))/d(vlogu) d(vlogu)/dx
 // = e^vlogu * (logu dv/dx + v dlogu/dx) = u^v * (logu dv/dx + v dlogu/du du/dx)
 // = u^v * (logu dv/dx + v/u du/dx)
-Expression* Pow::derivative(const Variable& var) const {
-    return new Mul(
-                copy(),
-                new Add(
-                    new Mul(new Ln(a->copy()), b->derivative(var)),
-                    new Mul(new Div(b->copy(), a->copy()), a->derivative(var))
+EPtr Pow::derivative(const Variable& var) const {
+    return Mul::create(
+                ecopy(),
+                Add::create(
+                    Mul::create(Ln::create(a->ecopy()), b->derivative(var)),
+                    Mul::create(Div::create(b->ecopy(), a->ecopy()), a->derivative(var))
                 )
             );
 }
 // d(u^a)/dx = d(u^b)/du * du/dx = bu^(b-1) * du/dx
-Expression* PowInt::derivative(const Variable& var) const {
-    return new Mul(
-                new Mul(new Constant(b), new PowInt(a->copy(), b-1)),
+EPtr PowInt::derivative(const Variable& var) const {
+    return Mul::create(
+                Mul::create(Constant::create(b), PowInt::create(a->ecopy(), b-1)),
                 a->derivative(var)
             );
 }
 
 // dgamma(u)/dx = dgamma(u)/du * du/dx = gamma(u)*psi_0(u) * du/dx
-Expression* Gamma::derivative(const Variable& var) const {
-    return new Mul(new Mul(new Gamma(a->copy()), new PolyGamma(a->copy(), 0)), a->derivative(var));
+EPtr Gamma::derivative(const Variable& var) const {
+    return Mul::create(Mul::create(Gamma::create(a->ecopy()), PolyGamma::create(a->ecopy(), 0)), a->derivative(var));
 }
 
 // dpsi_b(u)/dx = dpsi_b(u)/du * du/dx = psi_(b+1)(u) * du/dx
-Expression* PolyGamma::derivative(const Variable& var) const {
-    return new Mul(new PolyGamma(a->copy(), b+1), a->derivative(var));
+EPtr PolyGamma::derivative(const Variable& var) const {
+    return Mul::create(PolyGamma::create(a->ecopy(), b+1), a->derivative(var));
 }

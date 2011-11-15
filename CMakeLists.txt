@@ -23,5 +23,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include(${QT_USE_FILE})
 add_definitions(${QT_DEFINITIONS})
 
+add_definitions(-std=c++0x)
+
 add_executable(grapher ${grapher_SOURCES} ${grapher_HEADERS_MOC} ${grapher_SOURCES_UI})
 target_link_libraries(grapher ${QT_LIBRARIES} ${GSL_LIBRARIES})

@@ -35,16 +35,16 @@ void ImplicitGraph::reset(const Equation& rel, const Variable& _x, const Variabl
     valid = true;
     numPts = 0;
     std::cerr << rel.toString() << std::endl;
-    eqn.reset(new Sub(rel.a->copy(), rel.b->copy()));
+    eqn = Sub::create(rel.a->ecopy(), rel.b->ecopy());
     std::cerr << eqn->toString() << std::endl;
     x = _x;
     y = _y;
-    _dx.reset(eqn->derivative(x));
-    _dy.reset(eqn->derivative(y));
+    _dx = eqn->derivative(x);
+    _dy = eqn->derivative(y);
     std::cerr << _dx->toString() << '|' << _dy->toString() << std::endl;
-    eqn.reset(eqn->simplify());
-    _dx.reset(_dx->simplify());
-    _dy.reset(_dy->simplify());
+    eqn = eqn->simplify();
+    _dx = _dx->simplify();
+    _dy = _dy->simplify();
     std::cerr << eqn->toString() << std::endl;
     std::cerr << _dx->toString() << '|' << _dy->toString() << std::endl;
     resubstitute();
@@ -137,9 +137,9 @@ void ImplicitGraph::resubstitute() {
     External X(m_px.get()), Y(m_py.get());
     s.insert(std::make_pair(x, &X));
     s.insert(std::make_pair(y, &Y));
-    dx.reset(_dx->substitute(s));
-    dy.reset(_dy->substitute(s));
-    sub.reset(eqn->substitute(s));
+    dx = _dx->substitute(s);
+    dy = _dy->substitute(s);
+    sub = eqn->substitute(s);
 }
 
 QImage ImplicitGraph::iterate() {

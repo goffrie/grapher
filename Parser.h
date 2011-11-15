@@ -4,6 +4,7 @@
 #include <string>
 #include <exception>
 #include <boost/unordered_map.hpp>
+#include <memory>
 
 struct Thing;
 struct Expression;
@@ -63,7 +64,7 @@ struct Parser {
             return "Expected more operators than that!";
         }
     };
-    static Thing* parse(const std::string& str, const boost::unordered_map<std::string, Expression*>& variables);
+    static std::unique_ptr<Thing> parse(const std::string& str, const boost::unordered_map< std::string, Expression* >& variables);
 };
 
 

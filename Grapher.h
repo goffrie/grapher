@@ -36,8 +36,8 @@ class ImplicitGraph : public Graph {
     Q_OBJECT
     
     Variable x, y;
-    boost::scoped_ptr<Expression> eqn, _dx, _dy;
-    boost::scoped_ptr<Expression> sub, dx, dy;
+    std::unique_ptr<Expression> eqn, _dx, _dy;
+    std::unique_ptr<Expression> sub, dx, dy;
     boost::scoped_array<Number> m_px, m_py;
     std::size_t numPts;
     

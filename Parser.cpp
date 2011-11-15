@@ -5,10 +5,13 @@
 #include <stack>
 #include <iostream>
 #include <sstream>
+#include <memory>
 #include <boost/variant.hpp>
 #include <boost/variant/apply_visitor.hpp>
 #include <boost/unordered_map.hpp>
 #include <QDebug>
+
+#include "dynamic_unique_cast.h"
 
 bool isIntegral(Number a) {
     const Number b = floor(a + 0.5);
@@ -27,6 +30,14 @@ struct VariableTag {
 template<class Tag> struct Name : public std::string {
     explicit Name(const std::string& s) : std::string(s) { }
 };
+/*
+struct VariableName : public std::string {
+    explicit VariableName(const std::string& s) : std::string(s) { }
+};
+
+template<class T> struct FunctionBuilder {
+};
+*/
 
 struct printer : public boost::static_visitor<> {
     void operator()(const std::string& s) const {
@@ -44,17 +55,11 @@ struct printer : public boost::static_visitor<> {
 };
 struct shunt_visitor : public boost::static_visitor<> {
     typedef boost::variant<Name<FunctionTag>, char> optoken;
-    std::stack<Thing*> output;
+    std::stack<std::unique_ptr<Thing> > output;
     std::stack<optoken> operators;
     std::stack<int> argcounts;
     const boost::unordered_map<std::string, Expression*>& variables;
     shunt_visitor(const boost::unordered_map<std::string, Expression*>& _v) : variables(_v) { }
-    ~shunt_visitor() {
-        while (!output.empty()) {
-            delete output.top();
-            output.pop();
-        }
-    }
     enum Associativity {
         LeftAssociative,
         RightAssociative
@@ -80,15 +85,14 @@ struct shunt_visitor : public boost::static_visitor<> {
         argcounts.push(1);
     }
     void operator()(const Name<VariableTag>& name) {
-        output.push(variables.find(name)->second->copy());
+        output.push(variables.find(name)->second->ecopy());
     }
-    Expression* pop_expression() {
+    EPtr pop_expression() {
         if (output.empty()) throw Parser::UnexpectedOperatorException();
-        Thing* top = output.top();
+        EPtr ret(dynamic_unique_cast<Expression>(std::move(output.top())));
         output.pop();
-        Expression* ret = dynamic_cast<Expression*>(top);
-        if (ret == NULL) throw Parser::ExpressionTypeException();
-        return ret;
+        if (!ret) throw Parser::ExpressionTypeException();
+        return std::move(ret);
     }
     void apply_operator(optoken op) {
         if (Name<FunctionTag>* _func = boost::get<Name<FunctionTag> >(&op)) {
@@ -99,7 +103,7 @@ struct shunt_visitor : public boost::static_visitor<> {
 #define UNARY_FUNCTION(class, name) \
 if (func == #name) { \
     if (argc != 1) throw Parser::ArgumentCountException(func); \
-    output.push(new class(pop_expression())); \
+    output.push(class::create(pop_expression())); \
 } else
             UNARY_FUNCTION(Exp, exp)
             UNARY_FUNCTION(Ln, ln)
@@ -113,35 +117,34 @@ if (func == #name) { \
             UNARY_FUNCTION(Gamma, gamma)
             /* else */ if (func == "psi") {
                 if (argc != 2) throw Parser::ArgumentCountException(func);
-                Expression* z = pop_expression();
-                Expression* n = pop_expression();
-                Constant* c = dynamic_cast<Constant*>(n);
-                if (c == NULL || !isIntegral(c->c)) throw Parser::ExpressionTypeException();
-                output.push(new PolyGamma(z, rnd(c->c)));
+                EPtr z(pop_expression());
+                std::unique_ptr<Constant> c = dynamic_unique_cast<Constant>(pop_expression());
+                if (!c || !isIntegral(c->c)) throw Parser::ExpressionTypeException();
+                output.push(PolyGamma::create(std::move(z), rnd(c->c)));
             } else {
                 throw Parser::UnknownFunctionException(func);
             }
 #undef UNARY_FUNCTION
         } else if (char* _c = boost::get<char>(&op)) {
             char c = *_c;
-            Expression* b = pop_expression();
-            Expression* a = pop_expression();
+            EPtr b(pop_expression());
+            EPtr a(pop_expression());
             switch (c) {
-                case '*': output.push(new Mul(a, b)); break;
-                case '/': output.push(new Div(a, b)); break;
-                case '+': output.push(new Add(a, b)); break;
-                case '-': output.push(new Sub(a, b)); break;
+                case '*': output.push(Mul::create(std::move(a), std::move(b))); break;
+                case '/': output.push(Div::create(std::move(a), std::move(b))); break;
+                case '+': output.push(Add::create(std::move(a), std::move(b))); break;
+                case '-': output.push(Sub::create(std::move(a), std::move(b))); break;
                 case '^': {
-                    Constant* bc = dynamic_cast<Constant*>(b);
+                    Constant* bc = dynamic_cast<Constant*>(b.get());
                     if (bc != NULL && isIntegral(bc->c)) {
-                        output.push(new PowInt(a, rnd(bc->c)));
-                        delete bc;
+                        output.push(PowInt::create(std::move(a), rnd(bc->c)));
                     } else {
-                        output.push(new Pow(a, b));
+                        output.push(Pow::create(std::move(a), std::move(b)));
                     }
                     break;
                 }
-                case '=': output.push(new Equation(a, b)); break;
+                case '=': output.push(Equation::create(std::move(a), std::move(b))); break;
+                default: std::terminate();
             }
         } else {
             qDebug() << "EVERYTHING'S BAD";
@@ -199,18 +202,18 @@ if (func == #name) { \
         }
     }
     void operator()(Number num) {
-        output.push(new Constant(num));
+        output.push(Constant::create(num));
     }
-    Thing* finish() {
+    std::unique_ptr<Thing> finish() {
         while (!operators.empty()) pop_apply();
         if (output.size() != 1) throw Parser::MissingOperatorException();
-        Thing* ret = output.top();
+        std::unique_ptr<Thing> ret(std::move(output.top()));
         output.pop();
-        return ret;
+        return std::move(ret);
     }
 };
 
-Thing* Parser::parse(const std::string& str, const boost::unordered_map<std::string, Expression*>& variables) {
+std::unique_ptr<Thing> Parser::parse(const std::string& str, const boost::unordered_map<std::string, Expression*>& variables) {
     typedef boost::variant<Name<FunctionTag>, Name<VariableTag>, char, Number> token;
     std::list<token> tokens;
     for (std::size_t i = 0; i < str.size(); ++i) {
@@ -242,7 +245,7 @@ Thing* Parser::parse(const std::string& str, const boost::unordered_map<std::str
     for (std::list<token>::iterator next = tokens.begin(), p = next++; next != tokens.end(); p = next++) {
         char* a = boost::get<char>(&*p),
             * b = boost::get<char>(&*next);
-        if ((!a || *a == ')') && (!b || *b == '(')) {
+        if ((!a || *a == ')') && (!b || (*b == '(' && !boost::get<Name<FunctionTag>>(&*p)))) {
             next = tokens.insert(next, '*');
         }
     }

@@ -1,5 +1,6 @@
 #include "GraphProperties.h"
 #include "Parser.h"
+#include "dynamic_unique_cast.h"
 
 GraphProperties::GraphProperties(Variable _x, Variable _y, QWidget* parent): QGroupBox(parent), x(_x), y(_y) {
     setupUi(this);
@@ -10,14 +11,12 @@ void GraphProperties::textChanged() {
         boost::unordered_map<std::string, Expression*> vars;
         vars.insert(std::make_pair<std::string, Expression*>("x", &x));
         vars.insert(std::make_pair<std::string, Expression*>("y", &y));
-        Thing* t = Parser::parse(equation->text().toStdString(), vars);
-        Equation* eqn = dynamic_cast<Equation*>(t);
-        if (eqn == NULL) {
-            delete t;
+        auto eqn = dynamic_unique_cast<Equation>(Parser::parse(equation->text().toStdString(), vars));
+        if (!eqn) {
             setErrorMsg(QLatin1String("Didn't get an equation!"));
         } else {
             setErrorMsg(QString());
-            emit equationChanged(this, eqn);
+            emit equationChanged(this, eqn.release());
         }
     } catch (const std::exception& e) {
         setErrorMsg(QLatin1String(e.what()));
