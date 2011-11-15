@@ -2,21 +2,6 @@
 
 #include <bitset>
 
-Number gamma(Number a) {
-    static const Number g = 7;
-    static const Number p[] = {0.99999999999980993, 676.5203681218851, -1259.1392167224028,
-    771.32342877765313, -176.61502916214059, 12.507343278686905,
-    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7};
-    static const Number sqrt2pi = std::sqrt(2*M_PI);
-    if (a < 0.5) return M_PI / (sin(M_PI * a) * gamma(1. - a));
-    a -= 1.;
-    Number x = p[0];
-    for (int i = 1; i < g+2; ++i)
-        x += p[i] / (a + i);
-    Number t = a + g + 0.5;
-    return sqrt2pi * std::pow(t, a + 0.5) * std::exp(-t) * x;
-}
-
 Vector Constant::evaluateVector(size_t size) const {
     VectorR r = new Number[size];
     Number _c = c;

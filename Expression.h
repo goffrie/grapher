@@ -11,18 +11,7 @@
 #include <gsl/gsl_sf_gamma.h>
 #include <gsl/gsl_sf_psi.h>
 
-// #define USE_LLVM
-
-#ifdef USE_LLVM
-#include <llvm/DerivedTypes.h>
-#include <llvm/LLVMContext.h>
-#include <llvm/Module.h>
-#include <llvm/Analysis/Verifier.h>
-#include <llvm/Support/IRBuilder.h>
-#endif
-
 typedef float Number;
-// typedef void (*Evaluator)(Number*);
 typedef Number* Vector;
 typedef Number* __restrict__ VectorR;
 
@@ -35,19 +24,6 @@ struct Expression : public Thing {
     typedef boost::unordered_map<Variable, Expression*> Subst;
     virtual Number evaluate() const = 0;
     virtual Vector evaluateVector(std::size_t size) const = 0;
-#ifdef USE_LLVM
-    // the resulting function is bound to the lifetime of this object
-    Evaluator evaluator() const {
-        AsmJit::Compiler c;
-        c.newFunction(AsmJit::CALL_CONV_DEFAULT, AsmJit::FunctionBuilder1<AsmJit::Void, Number*>());
-        c.getFunction()->setHint(AsmJit::FUNCTION_HINT_NAKED, true);
-        AsmJit::XMMVar retvar(evaluate(c));
-        c.movss(AsmJit::Mem(c.argGP(0), 0), retvar);
-        c.endFunction();
-        return AsmJit::function_cast<Evaluator>(c.make());
-    }
-    virtual llvm::Value* evaluate(llvm::IRBuilder<>& c) const = 0;
-#endif
     virtual Expression* substitute(const Subst& s) const = 0;
     virtual Expression* derivative(const Variable& var) const = 0;
     virtual Expression* simplify() const { return copy(); }
@@ -59,11 +35,6 @@ struct Constant : public Expression {
     Constant(Number _c) : c(_c) { }
     Number evaluate() const { return c; }
     Vector evaluateVector(std::size_t size) const;
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>& cmp) const {
-        return llvm::ConstantFP::get(llvm::getGlobalContext(), c);
-    }
-#endif
     Expression* substitute(const Subst&) const { return copy(); }
     Constant* derivative(const Variable& /*var*/) const { return new Constant(0); }
 	void variables(std::set<Variable>&) const { }
@@ -75,11 +46,6 @@ struct External : public Expression {
     External(Number* _c) : c(_c) { }
     Number evaluate() const { return *c; }
     Vector evaluateVector(std::size_t size) const;
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>& cmp) const {
-        return cmp.CreateLoad(llvm::GlobalVariable());
-    }
-#endif
     Expression* substitute(const Subst&) const { return copy(); }
     Constant* derivative(const Variable& /*var*/) const { return new Constant(0); }
 	void variables(std::set<Variable>&) const { }
@@ -95,9 +61,6 @@ struct Variable : public Expression {
 	Variable(const boost::shared_ptr<Id>& b) : id(b) { }
     Number evaluate() const { throw this; }
     Vector evaluateVector(std::size_t size) const { throw this; }
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>&) const { throw this; }
-#endif
     Expression* substitute(const Subst& s) const {
         Subst::const_iterator p = s.find(*this);
         if (p == s.end()) return copy();
@@ -128,11 +91,6 @@ struct Neg : public UnaryOp {
     Number evaluate(Number _a) const { return -_a; }
     Number evaluate() const { return -a->evaluate(); }
     Vector evaluateVector(std::size_t size) const;
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>& c) const {
-        return c.CreateFNeg(a->evaluate(c));
-    }
-#endif
     Expression* substitute(const Subst& s) const { return new Neg(a->substitute(s)); }
     Expression* derivative(const Variable& var) const { return new Neg(a->derivative(var)); }
     Expression* simplify() const;
@@ -155,20 +113,6 @@ struct Name : public UnaryOp { \
     Name* construct(Expression* _a) const { return new Name(_a); } \
     std::string toString() const { return std::string(#func "(") + a->toString() + ")"; } \
 };
-
-/*
-     llvm::Value* evaluate(llvm::IRBuilder<>& c) const { \
-        AsmJit::XMMVar ret(c.newXMM()); \
-        Number (*func)(Number) = &std::func; \
-        AsmJit::ECall* ctx = c.call((void*)func); \
-        ctx->setPrototype(AsmJit::CALL_CONV_DEFAULT, AsmJit::FunctionBuilder1<Number, Number>()); \
-        ctx->setArgument(0, a->evaluate(c)); \
-        ctx->setReturn(ret); \
-        return ret; \
-    } \
-*/
-
-// Number gamma(Number a);
 
 UNARY_FUNCTION(Exp, exp, std::exp)
 UNARY_FUNCTION(Ln, log, std::log)
@@ -197,9 +141,6 @@ struct Add : public BinaryOp {
     Number evaluate() const { return a->evaluate() + b->evaluate(); }
     Number evaluate(Number _a, Number _b) const { return _a + _b; }
     Vector evaluateVector(std::size_t size) const;
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>& c) const { return c.CreateFAdd(a->evaluate(c), b->evaluate(c)); }
-#endif
     Expression* substitute(const Subst& s) const { return new Add(a->substitute(s), b->substitute(s)); }
     Expression* derivative(const Variable& var) const;
     Expression* simplify() const;
@@ -211,9 +152,6 @@ struct Sub : public BinaryOp {
     Number evaluate() const { return a->evaluate() - b->evaluate(); }
     Number evaluate(Number _a, Number _b) const { return _a - _b; }
     Vector evaluateVector(std::size_t size) const;
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>& c) const { return c.CreateFSub(a->evaluate(c), b->evaluate(c)); }
-#endif
     Expression* substitute(const Subst& s) const { return new Sub(a->substitute(s), b->substitute(s)); }
     Expression* derivative(const Variable& var) const;
     Expression* simplify() const;
@@ -225,9 +163,6 @@ struct Mul : public BinaryOp {
     Number evaluate() const { return a->evaluate() * b->evaluate(); }
     Number evaluate(Number _a, Number _b) const { return _a * _b; }
     Vector evaluateVector(std::size_t size) const;
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>& c) const { return c.CreateFMul(a->evaluate(c), b->evaluate(c)); }
-#endif
     Expression* substitute(const Subst& s) const { return new Mul(a->substitute(s), b->substitute(s)); }
     Expression* derivative(const Variable& var) const;
     Expression* simplify() const;
@@ -239,9 +174,6 @@ struct Div : public BinaryOp {
     Number evaluate() const { return a->evaluate() / b->evaluate(); }
     Number evaluate(Number _a, Number _b) const { return _a / _b; }
     Vector evaluateVector(std::size_t size) const;
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>& c) const { return c.CreateFDiv(a->evaluate(c), b->evaluate(c)); }
-#endif
     Expression* substitute(const Subst& s) const { return new Div(a->substitute(s), b->substitute(s)); }
     Expression* derivative(const Variable& var) const;
     Expression* simplify() const;
@@ -253,18 +185,6 @@ struct Pow : public BinaryOp {
     Number evaluate() const { return std::pow(a->evaluate(), b->evaluate()); }
     Number evaluate(Number _a, Number _b) const { return std::pow(_a, _b); }
     Vector evaluateVector(std::size_t size) const;
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>& c) const {
-        AsmJit::XMMVar ret(c.newXMM());
-        Number (*pow)(Number, Number) = &std::pow;
-        AsmJit::ECall* ctx = c.call((void*)pow);
-        ctx->setPrototype(AsmJit::CALL_CONV_DEFAULT, AsmJit::FunctionBuilder2<Number, Number, Number>());
-        ctx->setArgument(0, a->evaluate(c));
-        ctx->setArgument(1, b->evaluate(c));
-        ctx->setReturn(ret);
-        return ret;
-    }
-#endif
     Expression* substitute(const Subst& s) const { return new Pow(a->substitute(s), b->substitute(s)); }
     Expression* derivative(const Variable& var) const;
     Expression* simplify() const;
@@ -277,24 +197,6 @@ struct PowInt : public UnaryOp {
     Number evaluate() const;
     Number evaluate(Number _a) const;
     Vector evaluateVector(std::size_t size) const;
-#ifdef USE_LLVM
-    llvm::Value* evaluate(llvm::IRBuilder<>& c) const {
-        llvm::Value* _a = a->evaluate(c);
-        llvm::Value* ret = llvm::ConstantFP::get(llvm::getGlobalContext(), 1.);
-        int _b = b;
-        bool neg = b < 0;
-        if (neg) _b = -_b;
-        while (_b > 0) {
-            if (_b & 1) ret = c.CreateFMul(ret, _a);
-            _b >>= 1;
-            _a = c.CreateFMul(_a, _a);
-        }
-        if (neg) {
-            return c.CreateFDiv(llvm::ConstantFP::get(llvm::getGlobalContext(), 1.), ret);
-        }
-        return ret;
-    }
-#endif
     Expression* substitute(const Subst& s) const { return new PowInt(a->substitute(s), b); }
     Expression* derivative(const Variable& var) const;
     Expression* simplify() const;
