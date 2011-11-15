@@ -1,6 +1,7 @@
 #include "Expression.h"
 
 #include <bitset>
+#include <cstring>
 
 #define UNARY_FUNCTION(Name, func, sfunc) \
 Number Name::evaluate(Number _a) const { return sfunc(_a); } \
@@ -34,7 +35,8 @@ Vector Constant::evaluateVector(size_t size) const {
 
 Vector External::evaluateVector(size_t size) const {
     VectorR r = new Number[size];
-    for (std::size_t i = 0; i < size; ++i) r[i] = c[i];
+//    for (std::size_t i = 0; i < size; ++i) r[i] = c[i];
+    std::memcpy(r, c, sizeof(Number)*size);
     return r;
 }
 
