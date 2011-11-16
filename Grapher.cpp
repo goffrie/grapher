@@ -258,7 +258,7 @@ QImage ParametricGraph::iterate() {
     Number xscale = transform.m11(), yscale = transform.m22();
     bool kept = false;
     for (std::size_t i = 1; i < numPts; ++i) {
-        Q_ASSERT(!std::isnan(m_pt[i-1]));
+/*        Q_ASSERT(!std::isnan(m_pt[i-1]));
         if (std::isnan(m_pt[i])) {
             if (kept) {
                 // fill in gaps with NaN to reduce wasted calculations
@@ -269,9 +269,13 @@ QImage ParametricGraph::iterate() {
             kept = false;
             ++i;
             continue;
-        }
+        }*/
         Number dx = (m_vx[i] - m_vx[i-1]) * xscale, dy = (m_vy[i] - m_vy[i-1]) * yscale;
-        if (dx*dx + dy*dy > 0.25) {
+        if (gsl_finite(m_pt[i]) && gsl_finite(m_pt[i-1]) && m_pt[i] != m_pt[i-1] && dx*dx + dy*dy > 0.25) {
+            if (!gsl_finite(m_vx[i])) std::terminate();
+            if (!gsl_finite(m_vx[i-1])) std::terminate();
+            if (!gsl_finite(m_vy[i])) std::terminate();
+            if (!gsl_finite(m_vy[i-1])) std::terminate();
             // deepen
             if (!kept) {
                 nt[numNT] = m_pt[i-1];
@@ -280,7 +284,7 @@ QImage ParametricGraph::iterate() {
                 ++numNT;
             }
             nt[numNT] = pt[numT] = (m_pt[i] + m_pt[i-1]) / 2;
-            Q_ASSERT(gsl_isnan((nx[numNT] = ny[numNT] = GSL_NAN)));
+            nx[numNT] = ny[numNT] = GSL_NAN;
             ++numNT;
             ++numT;
             
@@ -293,7 +297,7 @@ QImage ParametricGraph::iterate() {
             if (kept) {
                 // fill in gaps with NaN to reduce wasted calculations
                 nt[numNT] = GSL_NAN;
-                Q_ASSERT(gsl_isnan((nx[numNT] = ny[numNT] = GSL_NAN)));
+                nx[numNT] = ny[numNT] = GSL_NAN;
                 ++numNT;
             }
             kept = false;
@@ -330,10 +334,14 @@ QImage ParametricGraph::iterate() {
         vy = fy.result();
     }
     QFuture<void> drawer = QtConcurrent::run(boost::bind(&ParametricGraph::draw, this, vx, vy, numT));
-    for (std::size_t i = 0, j = 0; j < numNT; ++j) {
+    for (std::size_t i = 0, j = 0; i < numT && j < numNT; ++j) {
         if (gsl_isnan(nt[j])) continue;
         if (nt[j] == pt[i]) {
-            Q_ASSERT(gsl_isnan(ny[j]));
+            if (!gsl_isnan(ny[j])) {
+                Q_ASSERT(!gsl_isnan(nx[j]));
+                // problems.
+                continue;
+            }
             Q_ASSERT(gsl_isnan(nx[j]));
             nx[j] = vx[i];
             ny[j] = vy[i];
