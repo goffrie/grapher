@@ -21,6 +21,7 @@ public:
     virtual ~Graph();
     void setupRestart(const QTransform& t, int width, int height);
     QImage img() { return m_img; }
+    void cancel();
 protected:
     QFuture<QImage> future;
     QFutureWatcher<QImage>* watcher;

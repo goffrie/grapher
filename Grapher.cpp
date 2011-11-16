@@ -25,13 +25,16 @@ ImplicitGraph::ImplicitGraph(Grapher* p) : Graph(p) {
 }
 
 Graph::~Graph() {
+    cancel();
+}
+
+void Graph::cancel() {
     future.cancel();
     future.waitForFinished();
 }
 
 void ImplicitGraph::reset(const Equation& rel, const Variable& _x, const Variable& _y) {
-    future.cancel();
-    future.waitForFinished();
+    cancel();
     valid = true;
     numPts = 0;
     std::cerr << rel.toString() << std::endl;
@@ -51,8 +54,7 @@ void ImplicitGraph::reset(const Equation& rel, const Variable& _x, const Variabl
 }
 
 void Graph::setupRestart(const QTransform& t, int _width, int _height) {
-    future.cancel();
-    future.waitForFinished();
+    cancel();
     width = _width;
     height = _height;
     transform = t;
@@ -233,7 +235,11 @@ void Grapher::resizeEvent(QResizeEvent*) {
 }
 
 void Grapher::deleteGraph(QObject* id) {
-    graphs.erase(graphs.find(id));
+    QMap<QObject*, Graph*>::iterator it = graphs.find(id);
+    Graph* graph = it.value();
+    graph->cancel();
+    graph->deleteLater();
+    graphs.erase(it);
     update();
 }
 
