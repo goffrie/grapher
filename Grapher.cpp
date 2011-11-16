@@ -343,6 +343,9 @@ QImage ParametricGraph::iterate() {
                 continue;
             }
             Q_ASSERT(gsl_isnan(nx[j]));
+            if (!gsl_finite(vx[i]) || !gsl_finite(vy[i])) {
+                continue;
+            }
             nx[j] = vx[i];
             ny[j] = vy[i];
             ++i;
