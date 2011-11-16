@@ -43,9 +43,10 @@ MainWindow::MainWindow() {
 }
 
 void MainWindow::newGraph() {
-    GraphProperties* newGraph = new GraphProperties(graph->getX(), graph->getY());
+    GraphProperties* newGraph = new GraphProperties();
     graphsLayout->addWidget(newGraph);
     graph->addGraph(newGraph);
-    connect(newGraph, SIGNAL(equationChanged(QObject*, Equation*)), graph, SLOT(changeEquation(QObject*, Equation*)));
+    connect(newGraph, SIGNAL(equationChanged(QObject*, Equation*, Variable, Variable)), graph, SLOT(changeEquation(QObject*, Equation*, Variable, Variable)));
+    connect(newGraph, SIGNAL(parametricChanged(QObject*, Expression*, Expression*, Variable, Number, Number)), graph, SLOT(changeParametric(QObject*, Expression*, Expression*, Variable, Number, Number)));
 }
 

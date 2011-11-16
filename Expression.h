@@ -10,6 +10,7 @@
 #include <gsl/gsl_sf_psi.h>
 #include <memory>
 #include <unordered_map>
+#include <QMetaType>
 
 typedef double Number;
 typedef Number* Vector;
@@ -99,6 +100,7 @@ struct Variable : public Expression {
 	friend bool operator<(const Variable& a, const Variable& b) { return a.id < b.id; }
     std::string toString(int prec = -1) const { return *id; }
 };
+Q_DECLARE_METATYPE(Variable);
 namespace std {
     inline std::size_t hash<Variable>::operator()(const Variable& a) const {
         return std::hash<Variable::Id*>()(a.id.get());

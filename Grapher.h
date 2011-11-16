@@ -16,7 +16,6 @@ class Grapher;
 class Graph : public QObject {
     Q_OBJECT
 public:
-    bool valid;
     Graph(Grapher* parent);
     virtual ~Graph();
     void setupRestart(const QTransform& t, int width, int height);
@@ -43,11 +42,32 @@ class ImplicitGraph : public Graph {
     std::size_t numPts;
     
     QImage iterate();
+    void resubstitute();
+    QImage draw();
 public:
     ImplicitGraph(Grapher* parent);
     void reset(const Equation& rel, const Variable& x, const Variable& y);
-    void resubstitute();
-    QImage draw();
+protected:
+    virtual QImage restart();
+protected slots:
+    virtual void iterateAgain();
+};
+
+class ParametricGraph : public Graph {
+    Q_OBJECT
+    
+    Variable t;
+    Number tMin, tMax;
+    std::unique_ptr<Expression> x, y;
+    boost::scoped_array<Number> m_pt, m_vx, m_vy;
+    std::size_t numPts;
+    QImage _img;
+    
+    void draw(Vector vx, Vector vy, std::size_t n);
+    QImage iterate();
+public:
+    ParametricGraph(Grapher* parent);
+    void reset(std::unique_ptr<Expression> x, std::unique_ptr<Expression> y, const Variable& t, Number tMin, Number tMax);
 protected:
     virtual QImage restart();
 protected slots:
@@ -56,22 +76,20 @@ protected slots:
 
 class Grapher : public QWidget {
 	Q_OBJECT
-    Variable x, y;
     QRectF sceneRect;
     QTransform transform;
 public:
     QMap<QObject*, Graph*> graphs;
 	Grapher(QWidget* parent = NULL);
     ~Grapher();
-    Variable getX() const { return x; }
-    Variable getY() const { return y; }
     void deleteGraph(QObject* id);
 	void addGraph(QObject* id);
     void paintEvent(QPaintEvent* event);
     void resizeEvent(QResizeEvent* event);
 public slots:
     void idDeleted(QObject* id);
-    void changeEquation(QObject* id, Equation* eqn);
+    void changeEquation(QObject* id, Equation* eqn, Variable x, Variable y);
+    void changeParametric(QObject* id, Expression* x, Expression* y, Variable t, Number tMin, Number tMax);
     void resized();
     void setWindow(QRectF window);
 };

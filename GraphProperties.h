@@ -7,11 +7,19 @@
 
 class GraphProperties : public QGroupBox, private Ui_GraphProperties {
     Q_OBJECT
-    Variable x, y;
 public:
-    GraphProperties(Variable x, Variable y, QWidget* parent = 0);
+    enum Type {
+        Relation,
+        Parametric
+    };
+private:
+    Variable x, y, t;
+    Type lastType;
+public:
+    GraphProperties(QWidget* parent = 0);
 signals:
-    void equationChanged(QObject* id, Equation* str);
+    void equationChanged(QObject* id, Equation* str, Variable x, Variable y);
+    void parametricChanged(QObject* id, Expression* x, Expression* y, Variable t, Number tMin, Number tMax);
 //    void deleteRequest();
 public slots:
     void textChanged();

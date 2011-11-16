@@ -7,29 +7,146 @@
     <x>0</x>
     <y>0</y>
     <width>488</width>
-    <height>89</height>
+    <height>197</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>GroupBox</string>
   </property>
   <property name="title">
-   <string>Relation</string>
+   <string>Graph</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Equation:</string>
+    <widget class="QTabWidget" name="graphTypeSwitcher">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="relation_tab">
+      <attribute name="title">
+       <string>Relation</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout_2">
+       <property name="fieldGrowthPolicy">
+        <enum>QFormLayout::ExpandingFieldsGrow</enum>
        </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="equation"/>
-     </item>
-    </layout>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_equation">
+         <property name="text">
+          <string>Equation:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="rel_equation"/>
+       </item>
+       <item row="1" column="0">
+        <spacer name="verticalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>38</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+      <zorder>rel_equation</zorder>
+      <zorder></zorder>
+     </widget>
+     <widget class="QWidget" name="parametric_tab">
+      <attribute name="title">
+       <string>Parametric</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout">
+       <property name="fieldGrowthPolicy">
+        <enum>QFormLayout::ExpandingFieldsGrow</enum>
+       </property>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>x(t) =</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="par_x"/>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="label_2">
+         <property name="text">
+          <string>y(t) =</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLineEdit" name="par_y"/>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="label_6">
+         <property name="text">
+          <string>t ∈</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QLabel" name="label_3">
+           <property name="text">
+            <string>[</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="par_tMin">
+           <property name="placeholderText">
+            <string>min</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_4">
+           <property name="text">
+            <string>,</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="par_tMax">
+           <property name="placeholderText">
+            <string>max</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_5">
+           <property name="text">
+            <string>]</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="6" column="1">
+        <spacer name="verticalSpacer_4">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+    </widget>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
@@ -54,22 +171,6 @@
  <resources/>
  <connections>
   <connection>
-   <sender>equation</sender>
-   <signal>editingFinished()</signal>
-   <receiver>GraphProperties</receiver>
-   <slot>textChanged()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>152</x>
-     <y>34</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>238</x>
-     <y>-8</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>deleteButton</sender>
    <signal>clicked()</signal>
    <receiver>GraphProperties</receiver>
@@ -77,11 +178,107 @@
    <hints>
     <hint type="sourcelabel">
      <x>48</x>
-     <y>65</y>
+     <y>173</y>
     </hint>
     <hint type="destinationlabel">
      <x>76</x>
      <y>1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>rel_equation</sender>
+   <signal>editingFinished()</signal>
+   <receiver>GraphProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>159</x>
+     <y>61</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>238</x>
+     <y>0</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_x</sender>
+   <signal>editingFinished()</signal>
+   <receiver>GraphProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>128</x>
+     <y>73</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>196</x>
+     <y>11</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_y</sender>
+   <signal>editingFinished()</signal>
+   <receiver>GraphProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>167</x>
+     <y>102</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>321</x>
+     <y>11</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_tMin</sender>
+   <signal>editingFinished()</signal>
+   <receiver>GraphProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>199</x>
+     <y>130</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>430</x>
+     <y>7</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_tMax</sender>
+   <signal>editingFinished()</signal>
+   <receiver>GraphProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>313</x>
+     <y>130</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>301</x>
+     <y>19</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>graphTypeSwitcher</sender>
+   <signal>currentChanged(int)</signal>
+   <receiver>GraphProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>65</x>
+     <y>41</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>23</x>
+     <y>7</y>
     </hint>
    </hints>
   </connection>

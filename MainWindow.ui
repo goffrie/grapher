@@ -55,7 +55,7 @@
          <item>
           <widget class="QPushButton" name="newGraphButton">
            <property name="text">
-            <string>New Relation</string>
+            <string>New Graph</string>
            </property>
           </widget>
          </item>
