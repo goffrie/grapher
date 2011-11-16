@@ -5,8 +5,8 @@ project(grapher)
 find_package(Qt4 REQUIRED)
 find_package(GSL REQUIRED)
 
-set(grapher_SOURCES main.cpp Expression.cpp Grapher.cpp Parser.cpp MainWindow.cpp WindowSettings.cpp GraphProperties.cpp)
-set(grapher_HEADERS Expression.h Grapher.h Parser.h MainWindow.h WindowSettings.h GraphProperties.h)
+set(grapher_SOURCES main.cpp Expression.cpp Graph.cpp Grapher.cpp Parser.cpp MainWindow.cpp WindowSettings.cpp GraphProperties.cpp)
+set(grapher_HEADERS Expression.h Graph.h Grapher.h Parser.h MainWindow.h WindowSettings.h GraphProperties.h)
 set(grapher_UI MainWindow.ui WindowSettings.ui GraphProperties.ui)
 
 # set(asmjit_SOURCES AsmJit/Assembler.cpp AsmJit/AssemblerX86X64.cpp AsmJit/CodeGenerator.cpp AsmJit/Compiler.cpp AsmJit/CompilerX86X64.cpp AsmJit/CpuInfo.cpp AsmJit/Defs.cpp AsmJit/DefsX86X64.cpp AsmJit/Logger.cpp AsmJit/MemoryManager.cpp AsmJit/Operand.cpp AsmJit/OperandX86X64.cpp AsmJit/Platform.cpp AsmJit/Util.cpp)
