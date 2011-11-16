@@ -13,7 +13,7 @@ void GraphProperties::textChanged() {
     try {
         QWidget* current = graphTypeSwitcher->currentWidget();
         if (current == relation_tab) {
-            boost::unordered_map<std::string, Expression*> vars;
+            std::unordered_map<std::string, Expression*> vars;
             vars.insert(std::make_pair<std::string, Expression*>("x", &x));
             vars.insert(std::make_pair<std::string, Expression*>("y", &y));
             auto eqn = dynamic_unique_cast<Equation>(Parser::parse(rel_equation->text().toStdString(), vars));
@@ -28,7 +28,7 @@ void GraphProperties::textChanged() {
             if (tMax <= tMin || !par_tMin->text().size() || !par_tMax->text().size()) {
                 setErrorMsg(QLatin1String("Bad interval!"));
             } else {
-                boost::unordered_map<std::string, Expression*> vars;
+                std::unordered_map<std::string, Expression*> vars;
                 vars.insert(std::make_pair<std::string, Expression*>("t", &t));
                 auto ex = dynamic_unique_cast<Expression>(Parser::parse(par_x->text().toStdString(), vars));
                 if (!ex) {

@@ -8,7 +8,6 @@
 #include <memory>
 #include <boost/variant.hpp>
 #include <boost/variant/apply_visitor.hpp>
-#include <boost/unordered_map.hpp>
 #include <QDebug>
 
 #include "dynamic_unique_cast.h"
@@ -49,8 +48,8 @@ struct shunt_visitor : public boost::static_visitor<> {
     std::vector<std::unique_ptr<Thing> > output;
     std::vector<optoken> operators;
     std::stack<int> argcounts;
-    const boost::unordered_map<std::string, Expression*>& variables;
-    shunt_visitor(const boost::unordered_map<std::string, Expression*>& _v) : variables(_v) { }
+    const std::unordered_map<std::string, Expression*>& variables;
+    shunt_visitor(const std::unordered_map<std::string, Expression*>& _v) : variables(_v) { }
     enum Associativity {
         LeftAssociative,
         RightAssociative
@@ -222,7 +221,7 @@ if (func == #name) { \
     }
 };
 
-std::unique_ptr<Thing> Parser::parse(const std::string& str, const boost::unordered_map<std::string, Expression*>& variables) {
+std::unique_ptr<Thing> Parser::parse(const std::string& str, const std::unordered_map<std::string, Expression*>& variables) {
     typedef boost::variant<Name<FunctionTag>, Name<VariableTag>, char, Number> token;
     std::list<token> tokens;
     for (std::size_t i = 0; i < str.size(); ++i) {

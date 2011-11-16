@@ -1,6 +1,5 @@
 #include "Graph.h"
 
-#include <QtConcurrentMap>
 #include <QtConcurrentRun>
 
 #include <QPainter>
@@ -9,7 +8,6 @@
 #include <QDebug>
 #include <iostream>
 
-#include <boost/bind.hpp>
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
 
@@ -31,7 +29,7 @@ void Graph::setupRestart(const QTransform& t, int _width, int _height) {
     width = _width;
     height = _height;
     transform = t;
-    future = QtConcurrent::run(boost::bind(&Graph::restart, this));
+    future = QtConcurrent::run(this, &Graph::restart);
     watcher->setFuture(future);
 }
 
@@ -86,9 +84,9 @@ QImage ImplicitGraph::restart() {
             }
         }
     }
-    boost::scoped_array<Number> gx(dx->evaluateVector(size)),
-                                gy(dy->evaluateVector(size)),
-                                p(sub->evaluateVector(size));
+    std::unique_ptr<Number[]> gx(dx->evaluateVector(size)),
+                              gy(dy->evaluateVector(size)),
+                              p(sub->evaluateVector(size));
     for (std::size_t i = 0; i < size; ++i) {
         QPointF pt(m_px[i], m_py[i]);
         QPointF correction = QPointF(gx[i], gy[i]) * (p[i] / (gx[i] * gx[i] + gy[i] * gy[i]));
@@ -107,7 +105,7 @@ void ImplicitGraph::iterateAgain() {
     future.waitForFinished();
     if (future.isCanceled()) return;
     m_img = future.result();
-    future = QtConcurrent::run(boost::bind(&ImplicitGraph::iterate, this));
+    future = QtConcurrent::run(this, &ImplicitGraph::iterate);
     watcher->setFuture(future);
     emit updated();
 }
@@ -217,8 +215,8 @@ QImage ParametricGraph::restart() {
     }
     VectorR vx, vy;
     {
-        QFuture<Vector> fx = QtConcurrent::run(boost::bind(&Expression::evaluateVector, sx.get(), num));
-        QFuture<Vector> fy = QtConcurrent::run(boost::bind(&Expression::evaluateVector, sy.get(), num));
+        QFuture<Vector> fx = QtConcurrent::run(sx.get(), &Expression::evaluateVector, num);
+        QFuture<Vector> fy = QtConcurrent::run(sy.get(), &Expression::evaluateVector, num);
         fx.waitForFinished();
         fy.waitForFinished();
         vx = fx.result();
@@ -320,14 +318,14 @@ QImage ParametricGraph::iterate() {
             sx = x->substitute(s);
             sy = y->substitute(s);
         }
-        QFuture<Vector> fx = QtConcurrent::run(boost::bind(&Expression::evaluateVector, sx.get(), numT));
-        QFuture<Vector> fy = QtConcurrent::run(boost::bind(&Expression::evaluateVector, sy.get(), numT));
+        QFuture<Vector> fx = QtConcurrent::run(sx.get(), &Expression::evaluateVector, numT);
+        QFuture<Vector> fy = QtConcurrent::run(sy.get(), &Expression::evaluateVector, numT);
         fx.waitForFinished();
         fy.waitForFinished();
         vx = fx.result();
         vy = fy.result();
     }
-    QFuture<void> drawer = QtConcurrent::run(boost::bind(&ParametricGraph::draw, this, vx, vy, numT));
+    QFuture<void> drawer = QtConcurrent::run(this, &ParametricGraph::draw, vx, vy, numT);
     for (std::size_t i = 0, j = 0; i < numT && j < numNT; ++j) {
         if (gsl_isnan(nt[j])) continue;
         if (nt[j] == pt[i]) {
@@ -362,7 +360,7 @@ void ParametricGraph::iterateAgain() {
     if (future.isCanceled()) return;
     m_img = future.result();
     if (numPts != 0) {
-        future = QtConcurrent::run(boost::bind(&ParametricGraph::iterate, this));
+        future = QtConcurrent::run(this, &ParametricGraph::iterate);
         watcher->setFuture(future);
     }
     emit updated();

@@ -10,8 +10,6 @@
 
 #include "Expression.h"
 
-#include <boost/scoped_array.hpp>
-
 class Graph : public QObject {
     Q_OBJECT
 public:
@@ -39,7 +37,7 @@ class ImplicitGraph : public Graph {
     Variable x, y;
     std::unique_ptr<Expression> eqn, _dx, _dy;
     std::unique_ptr<Expression> sub, dx, dy;
-    boost::scoped_array<Number> m_px, m_py;
+    std::unique_ptr<Number[]> m_px, m_py;
     std::size_t numPts;
     
     QImage iterate();
@@ -60,7 +58,7 @@ class ParametricGraph : public Graph {
     Variable t;
     Number tMin, tMax;
     std::unique_ptr<Expression> x, y;
-    boost::scoped_array<Number> m_pt, m_vx, m_vy;
+    std::unique_ptr<Number[]> m_pt, m_vx, m_vy;
     std::size_t numPts;
     QImage _img;
     
