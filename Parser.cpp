@@ -12,16 +12,7 @@
 #include <QDebug>
 
 #include "dynamic_unique_cast.h"
-
-bool isIntegral(Number a) {
-    const Number b = floor(a + 0.5);
-    const Number epsilon = 1e-4;
-    return (a < b + epsilon) && (b < a + epsilon);
-}
-
-int rnd(Number a) {
-    return static_cast<int>(a + 0.5);
-}
+#include "util.h"
 
 struct FunctionTag {
 };
