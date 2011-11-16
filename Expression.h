@@ -11,7 +11,7 @@
 #include <memory>
 #include <unordered_map>
 
-typedef float Number;
+typedef double Number;
 typedef Number* Vector;
 typedef Number* __restrict__ VectorR;
 
@@ -22,11 +22,23 @@ namespace std {
         std::size_t operator()(const Variable& a) const;
     };
 }
+namespace Precedence {
+    enum {
+        Func = 100,
+        Pow = 10,
+        Div = 7,
+        Mul = 7,
+        Neg = 5,
+        Sub = 3,
+        Add = 3,
+        Eq = 0
+    };
+}
+
 struct Thing {
     virtual ~Thing() { };
-    virtual std::string toString() const = 0;
+    virtual std::string toString(int precedence = -1) const = 0;
 };
-
 struct Expression;
 typedef std::unique_ptr<Expression> EPtr;
 struct Expression : public Thing {
@@ -50,7 +62,7 @@ struct Constant : public Expression {
     EPtr derivative(const Variable&) const { return EPtr(new Constant(0)); }
 	void variables(std::set<Variable>&) const { }
     Constant* copy() const { return new Constant(c); }
-    std::string toString() const { return boost::lexical_cast<std::string>(c); }
+    std::string toString(int prec = -1) const { return boost::lexical_cast<std::string>(c); }
 };
 struct External : public Expression {
     Vector c;
@@ -62,7 +74,7 @@ struct External : public Expression {
     EPtr derivative(const Variable&) const { return EPtr(new Constant(0)); }
 	void variables(std::set<Variable>&) const { }
     External* copy() const { return new External(c); }
-    std::string toString() const { return std::string("External(") + boost::lexical_cast<std::string>(c) + ")"; }
+    std::string toString(int prec = -1) const { return std::string("External(") + boost::lexical_cast<std::string>(c) + ")"; }
 };
 struct Variable : public Expression {
 	typedef std::string Id;
@@ -85,7 +97,7 @@ struct Variable : public Expression {
     Variable* copy() const { return new Variable(id); }
 	bool operator==(const Variable& b) const { return id == b.id; }
 	friend bool operator<(const Variable& a, const Variable& b) { return a.id < b.id; }
-    std::string toString() const { return *id + "#" + boost::lexical_cast<std::string>(id.get()); }
+    std::string toString(int prec = -1) const { return *id; }
 };
 namespace std {
     inline std::size_t hash<Variable>::operator()(const Variable& a) const {
@@ -103,6 +115,8 @@ struct UnaryOp : public Expression {
     UnaryOp* copy() const { return construct(EPtr(a->copy())); }
 };
 
+#define wrap(P, Q, S) (((P) > (Q)) ? std::string("(") : std::string()) + (S) + (((P) > (Q)) ? std::string(")") : std::string())
+
 #define UNARY_FUNCTION(Name, func, sfunc, extra) \
 struct Name : public UnaryOp { \
     Name(EPtr _a) : UnaryOp(std::move(_a)) { } \
@@ -112,12 +126,13 @@ struct Name : public UnaryOp { \
     EPtr derivative(const Variable& var) const; \
     Name* construct(EPtr _a) const { return new Name(std::move(_a)); } \
     static std::unique_ptr<Name> create(EPtr _a) { return std::unique_ptr<Name>(new Name(std::move(_a))); } \
-    std::string toString() const { return std::string(#func "(") + a->toString() + ")"; } \
     extra \
 };
-#define SIMPLE_UNARY_FUNCTION(Name, func) UNARY_FUNCTION(Name, func, std::func, )
+#define FUNCTION_PRINTER(func) std::string toString(int prec = -1) const { return wrap(prec, Precedence::Func, std::string(#func "(") + a->toString(-1) + ")"); }
+#define SIMPLE_UNARY_FUNCTION(Name, func) UNARY_FUNCTION(Name, func, std::func, FUNCTION_PRINTER(func) )
 
-UNARY_FUNCTION(Neg, -, -, EPtr simplify() const;)
+UNARY_FUNCTION(Neg, -, -, EPtr simplify() const; \
+    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Neg, std::string("-") + a->toString(Precedence::Neg)); })
 SIMPLE_UNARY_FUNCTION(Exp, exp)
 SIMPLE_UNARY_FUNCTION(Ln, log)
 SIMPLE_UNARY_FUNCTION(Sqrt, sqrt)
@@ -127,7 +142,7 @@ SIMPLE_UNARY_FUNCTION(Tan, tan)
 SIMPLE_UNARY_FUNCTION(Asin, asin)
 SIMPLE_UNARY_FUNCTION(Acos, acos)
 SIMPLE_UNARY_FUNCTION(Atan, atan)
-UNARY_FUNCTION(Gamma, gamma, gsl_sf_gamma, )
+UNARY_FUNCTION(Gamma, gamma, gsl_sf_gamma, FUNCTION_PRINTER(gamma) )
 
 #undef UNARY_FUNCTION
 
@@ -140,7 +155,7 @@ struct BinaryOp : public Expression {
     BinaryOp* copy() const { return construct(EPtr(a->copy()), EPtr(b->copy())); }
 };
 
-#define BINARY_OP(Name, op, func) \
+#define BINARY_OP(Name, op, ladj, radj, func) \
 struct Name : public BinaryOp { \
     Name(EPtr _a, EPtr _b) : BinaryOp(std::move(_a), std::move(_b)) { } \
     Number evaluate() const { return func(a->evaluate(), b->evaluate()); } \
@@ -150,16 +165,16 @@ struct Name : public BinaryOp { \
     EPtr simplify() const; \
     Name* construct(EPtr _a, EPtr _b) const { return new Name(std::move(_a), std::move(_b)); } \
     static std::unique_ptr<Name> create(EPtr _a, EPtr _b) { return std::unique_ptr<Name>(new Name(std::move(_a), std::move(_b))); } \
-    std::string toString() const { return std::string("(") + a->toString() + ") " #op " (" + b->toString() + ")"; } \
+    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Name, a->toString(Precedence::Name+ladj) + " " #op " " + b->toString(Precedence::Name+radj)); } \
 };
 
-#define SIMPLE_OP(Name, op) BINARY_OP(Name, op, [](Number a, Number b) -> Number { return a op b; })
+#define SIMPLE_OP(Name, op, ladj, radj) BINARY_OP(Name, op, ladj, radj, [](Number a, Number b) -> Number { return a op b; })
 
-SIMPLE_OP(Add, +)
-SIMPLE_OP(Sub, -)
-SIMPLE_OP(Mul, *)
-SIMPLE_OP(Div, /)
-BINARY_OP(Pow, ^, std::pow)
+SIMPLE_OP(Add, +, 0, 0)
+SIMPLE_OP(Sub, -, 0, 1)
+SIMPLE_OP(Mul, *, 0, 0)
+SIMPLE_OP(Div, /, 0, 1)
+BINARY_OP(Pow, ^, 1, 0, std::pow)
 /*struct Add : public BinaryOp {
     Add(EPtr _a, EPtr _b) : BinaryOp(std::move(_a), std::move(_b)) { }
     Number evaluate() const { return a->evaluate() + b->evaluate(); }
@@ -220,7 +235,7 @@ struct PowInt : public UnaryOp {
     EPtr derivative(const Variable& var) const;
     EPtr simplify() const;
     PowInt* construct(EPtr _a) const { return new PowInt(std::move(_a), b); }
-    std::string toString() const { return std::string("(") + a->toString() + ") ^ (!" + boost::lexical_cast<std::string>(b) + ")"; }
+    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Pow, a->toString(Precedence::Pow+1) + " ^ !" + boost::lexical_cast<std::string>(b)); }
 };
 struct PolyGamma : public UnaryOp {
     int b;
@@ -231,13 +246,13 @@ struct PolyGamma : public UnaryOp {
     Vector evaluateVector(std::size_t size) const;
     EPtr derivative(const Variable& var) const;
     PolyGamma* construct(EPtr _a) const { return new PolyGamma(std::move(_a), b); }
-    std::string toString() const { return std::string("psi_") + boost::lexical_cast<std::string>(b) + "(" + a->toString() + ")"; }
+    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Func, std::string("psi_") + boost::lexical_cast<std::string>(b) + "(" + a->toString(-1) + ")"); }
 };
 struct Equation : public Thing {
     EPtr a, b;
     Equation(EPtr _a, EPtr _b) : a(std::move(_a)), b(std::move(_b)) { }
     static std::unique_ptr<Equation> create(EPtr _a, EPtr _b) { return std::unique_ptr<Equation>(new Equation(std::move(_a), std::move(_b))); }
-    std::string toString() const { return a->toString() + " = " + b->toString(); }
+    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Eq, a->toString(Precedence::Eq) + " = " + b->toString(Precedence::Eq)); }
 };
 /*
 struct Function : public Thing {
