@@ -132,7 +132,7 @@ struct Name : public UnaryOp { \
 #define SIMPLE_UNARY_FUNCTION(Name, func) UNARY_FUNCTION(Name, func, std::func, FUNCTION_PRINTER(func) )
 
 UNARY_FUNCTION(Neg, -, -, EPtr simplify() const; \
-    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Neg, std::string("-") + a->toString(Precedence::Neg)); })
+    std::string toString(int prec = -1) const { return std::string("-") + a->toString(Precedence::Neg); })
 SIMPLE_UNARY_FUNCTION(Exp, exp)
 SIMPLE_UNARY_FUNCTION(Ln, log)
 SIMPLE_UNARY_FUNCTION(Sqrt, sqrt)
