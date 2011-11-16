@@ -167,9 +167,9 @@ EPtr Neg::simplify() const {
     }
     Sub* asb = dynamic_cast<Sub*>(as.get());
     if (asb != NULL) {
-        return Sub::create(std::move(asb->b), std::move(asb->a))->simplify();
+        return (std::move(asb->b) - std::move(asb->a))->simplify();
     }
-    return Neg::create(std::move(as));
+    return -std::move(as);
 }
 
 EPtr Add::simplify() const {
@@ -407,7 +407,7 @@ EPtr PowInt::simplify() const {
 
 // d(-u)/dx = -du/dx
 EPtr Neg::derivative(const Variable& var) const {
-    return Neg::create(a->derivative(var));
+    return -a->derivative(var);
 }
 
 // de^u/dx = de^u/du * du/dx = e^u * du/dx
