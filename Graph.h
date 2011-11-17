@@ -24,6 +24,7 @@ protected:
     int width, height;
     QTransform transform;
     QImage m_img;
+    bool cancelled;
     virtual QImage restart() = 0;
 protected slots:
     virtual void iterateAgain() = 0;

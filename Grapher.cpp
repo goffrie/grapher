@@ -2,10 +2,13 @@
 
 #include <QPainter>
 #include <QDebug>
+#include <QTimer>
 
 #include "Graph.h"
 
-Grapher::Grapher(QWidget* parent) : QWidget(parent) {
+Grapher::Grapher(QWidget* parent) : QWidget(parent), needsRedraw(false), redrawTimer(new QTimer(this)) {
+    redrawTimer->setInterval(1000 / 15);
+    connect(redrawTimer, SIGNAL(timeout()), this, SLOT(scheduledUpdate()));
 }
 
 Grapher::~Grapher() {
@@ -54,7 +57,7 @@ void Grapher::deleteGraph(QObject* id) {
     graph->cancel();
     graph->deleteLater();
     graphs.erase(it);
-    update();
+    scheduleUpdate(true);
 }
 
 void Grapher::idDeleted(QObject* id) {
@@ -70,7 +73,7 @@ void Grapher::changeEquation(QObject* id, Equation* eqn, Variable x, Variable y)
             delete g_graph;
         }
         graphs[id] = graph = new ImplicitGraph(this);
-        connect(graph, SIGNAL(updated()), SLOT(update()));
+        connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
     }
     graph->reset(*eqn, x, y);
     delete eqn;
@@ -86,9 +89,28 @@ void Grapher::changeParametric(QObject* id, Expression* x, Expression* y, Variab
             delete g_graph;
         }
         graphs[id] = graph = new ParametricGraph(this);
-        connect(graph, SIGNAL(updated()), SLOT(update()));
+        connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
     }
     graph->reset(EPtr(x), EPtr(y), t, tMin, tMax);
     graph->setupRestart(transform, width(), height());
+}
+
+void Grapher::scheduleUpdate(bool now) {
+    if (now || !redrawTimer->isActive()) {
+        update();
+        needsRedraw = false;
+        redrawTimer->start();
+    } else {
+        needsRedraw = true;
+    }
+}
+
+void Grapher::scheduledUpdate() {
+    if (needsRedraw) {
+        update();
+        needsRedraw = false;
+    } else {
+        redrawTimer->stop();
+    }
 }
 

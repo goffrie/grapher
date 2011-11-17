@@ -8,11 +8,14 @@
 class QPaintEvent;
 class QResizeEvent;
 class Graph;
+class QTimer;
 
 class Grapher : public QWidget {
 	Q_OBJECT
     QRectF sceneRect;
     QTransform transform;
+    bool needsRedraw;
+    QTimer* redrawTimer;
 public:
     QMap<QObject*, Graph*> graphs;
 	Grapher(QWidget* parent = NULL);
@@ -27,6 +30,8 @@ public slots:
     void changeParametric(QObject* id, Expression* x, Expression* y, Variable t, Number tMin, Number tMax);
     void resized();
     void setWindow(QRectF window);
+    void scheduleUpdate(bool now = false);
+    void scheduledUpdate();
 };
 
 #endif

@@ -27,8 +27,9 @@ Graph::~Graph() {
 }
 
 void Graph::cancel() {
-    future.cancel();
+    cancelled = true;
     future.waitForFinished();
+    cancelled = false;
 }
 
 void Graph::setupRestart(const QTransform& t, int _width, int _height) {
@@ -90,10 +91,14 @@ QImage ImplicitGraph::restart() {
             ++size;
             }
         }
+        if (cancelled) return QImage();
     }
-    std::unique_ptr<Number[]> gx(dx->evaluateVector(size)),
-                              gy(dy->evaluateVector(size)),
-                              p(sub->evaluateVector(size));
+    std::unique_ptr<Number[]> gx(dx->evaluateVector(size));
+    if (cancelled) return QImage();
+    std::unique_ptr<Number[]> gy(dy->evaluateVector(size));
+    if (cancelled) return QImage();
+    std::unique_ptr<Number[]> p (sub->evaluateVector(size));
+    if (cancelled) return QImage();
     for (std::size_t i = 0; i < size; ++i) {
         QPointF pt(m_px[i], m_py[i]);
         QPointF correction = QPointF(gx[i], gy[i]) * (p[i] / (gx[i] * gx[i] + gy[i] * gy[i]));
@@ -105,13 +110,16 @@ QImage ImplicitGraph::restart() {
             ++numPts;
         }
     }
+    if (cancelled) return QImage();
     return downsample(draw());
 }
 
 void ImplicitGraph::iterateAgain() {
     future.waitForFinished();
     if (future.isCanceled()) return;
-    m_img = future.result();
+    QImage newImg = future.result();
+    if (newImg.isNull()) return;
+    m_img = newImg;
     future = QtConcurrent::run(this, &ImplicitGraph::iterate);
     watcher->setFuture(future);
     emit updated();
@@ -142,51 +150,63 @@ void ImplicitGraph::resubstitute() {
 }
 
 QImage ImplicitGraph::iterate() {
+    if (cancelled) return QImage();
     std::size_t size = numPts;
-    VectorR gx  = dx->evaluateVector(size),
-            gy  = dy->evaluateVector(size),
-            p   = sub->evaluateVector(size),
-            gx2 = new Number[size],
-            gy2 = new Number[size],
-            gxy = new Number[size],
-            px = m_px.get(),
-            py = m_py.get();
+    std::unique_ptr<Number[]> p_gx (dx->evaluateVector(size));
+    if (cancelled) return QImage();
+    std::unique_ptr<Number[]> p_gy (dy->evaluateVector(size));
+    if (cancelled) return QImage();
+    std::unique_ptr<Number[]> p_p  (sub->evaluateVector(size));
+    if (cancelled) return QImage();
+    std::unique_ptr<Number[]> p_gx2(new Number[size]),
+                              p_gy2(new Number[size]),
+                              p_gxy(new Number[size]);
+    VectorR gx  = p_gx.get(),
+            gy  = p_gy.get(),
+            p   = p_p.get(),
+            gx2 = p_gx2.get(),
+            gy2 = p_gy2.get(),
+            gxy = p_gxy.get(),
+            px  = m_px.get(),
+            py  = m_py.get();
     // correcting factor = (gx, gy) * p / (gx * gx + gy * gy)
     // (gx2, gy2) = (gx^2, gy^2) in place
     for (std::size_t i = 0; i < size; ++i) {
         gx2[i] = gx[i] * gx[i];
     }
+    if (cancelled) return QImage();
     for (std::size_t i = 0; i < size; ++i) {
         gy2[i] = gy[i] * gy[i];
     }
+    if (cancelled) return QImage();
     // gxy = gx^2+gy^2
     for (std::size_t i = 0; i < size; ++i) {
         gxy[i] = gx2[i] + gy2[i];
     }
+    if (cancelled) return QImage();
     // replace "p" with p/(gx^2 + gy^2)
     for (std::size_t i = 0; i < size; ++i) {
         p[i] = p[i] / gxy[i];
     }
+    if (cancelled) return QImage();
     // replace (gx, gy) with (gx, gy) * p / (gx^2 + gy^2)
     for (std::size_t i = 0; i < size; ++i) {
         gx[i] = gx[i] * p[i];
     }
+    if (cancelled) return QImage();
     for (std::size_t i = 0; i < size; ++i) {
         gy[i] = gy[i] * p[i];
     }
+    if (cancelled) return QImage();
     // update points
     for (std::size_t i = 0; i < size; ++i) {
         px[i] = px[i] - gx[i];
     }
+    if (cancelled) return QImage();
     for (std::size_t i = 0; i < size; ++i) {
         py[i] = py[i] - gy[i];
     }
-    delete[] gx;
-    delete[] gy;
-    delete[] p;
-    delete[] gx2;
-    delete[] gy2;
-    delete[] gxy;
+    if (cancelled) return QImage();
     return downsample(draw());
 }
 
@@ -250,10 +270,11 @@ void ParametricGraph::draw(Vector vx, Vector vy, size_t n) {
 }
 
 QImage ParametricGraph::iterate() {
-    VectorR pt = new Number[numPts - 1];
-    VectorR nt = new Number[numPts * 2 - 1];
-    VectorR nx = new Number[numPts * 2 - 1];
-    VectorR ny = new Number[numPts * 2 - 1];
+    if (cancelled) return QImage();
+    std::unique_ptr<Number[]> pt(new Number[numPts - 1]);
+    std::unique_ptr<Number[]> nt(new Number[numPts * 2 - 1]);
+    std::unique_ptr<Number[]> nx(new Number[numPts * 2 - 1]);
+    std::unique_ptr<Number[]> ny(new Number[numPts * 2 - 1]);
     std::size_t numT = 0, numNT = 0;
     Number xscale = transform.m11(), yscale = transform.m22();
     bool kept = false;
@@ -287,25 +308,22 @@ QImage ParametricGraph::iterate() {
             kept = false;
         }
     }
+    if (cancelled) return QImage();
     qDebug() << "deepened by" << numT << "old" << numPts << "new" << numNT;
     if (numT == 0) {
         // done.
-        delete[] pt;
-        delete[] nt;
-        delete[] nx;
-        delete[] ny;
         m_pt.reset();
         m_vx.reset();
         m_vy.reset();
         numPts = 0;
         return downsample(_img);
     }
-    VectorR vx, vy;
+    std::unique_ptr<Number[]> vx, vy;
     {
         EPtr sx, sy;
         {
             Expression::Subst s;
-            External T(pt);
+            External T(pt.get());
             s.insert(std::make_pair(t, &T));
             sx = x->substitute(s);
             sy = y->substitute(s);
@@ -314,10 +332,11 @@ QImage ParametricGraph::iterate() {
         QFuture<Vector> fy = QtConcurrent::run(sy.get(), &Expression::evaluateVector, numT);
         fx.waitForFinished();
         fy.waitForFinished();
-        vx = fx.result();
-        vy = fy.result();
+        vx.reset(fx.result());
+        vy.reset(fy.result());
     }
-    QFuture<void> drawer = QtConcurrent::run(this, &ParametricGraph::draw, vx, vy, numT);
+    if (cancelled) return QImage();
+    QFuture<void> drawer = QtConcurrent::run(this, &ParametricGraph::draw, vx.get(), vy.get(), numT);
     for (std::size_t i = 0, j = 0; i < numT && j < numNT; ++j) {
         if (gsl_isnan(nt[j])) continue;
         if (nt[j] == pt[i]) {
@@ -336,13 +355,11 @@ QImage ParametricGraph::iterate() {
         }
     }
     numPts = numNT;
-    m_vx.reset(nx);
-    m_vy.reset(ny);
-    m_pt.reset(nt);
-    delete[] pt;
+    m_vx = std::move(nx);
+    m_vy = std::move(ny);
+    m_pt = std::move(nt);
     drawer.waitForFinished();
-    delete[] vx;
-    delete[] vy;
+    if (cancelled) return QImage();
     return downsample(_img);
 }
 
@@ -350,7 +367,9 @@ QImage ParametricGraph::iterate() {
 void ParametricGraph::iterateAgain() {
     future.waitForFinished();
     if (future.isCanceled()) return;
-    m_img = future.result();
+    QImage newImg = future.result();
+    if (newImg.isNull()) return;
+    m_img = newImg;
     if (numPts != 0) {
         future = QtConcurrent::run(this, &ParametricGraph::iterate);
         watcher->setFuture(future);
