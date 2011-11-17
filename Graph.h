@@ -36,7 +36,6 @@ protected:
     Variable x, y;
     
     QFuture<void> future;
-    QImage full_img;
     QImage m_img;
     QMutex img_mutex;
     int width, height;

@@ -48,7 +48,7 @@ InequalityGraph::InequalityGraph(QObject* parent): Graph(parent) {
 QImage InequalityGraph::img()
 {
     img_mutex.lock();
-    QImage r = m_img.copy();
+    QImage r = m_img;
     img_mutex.unlock();
     return r;
 }
@@ -80,15 +80,10 @@ void InequalityGraph::restart() {
     }
     Number xstep = (right - left) / width;
     Number ystep = (top - bottom) / height;
-    {QMutexLocker locker(&img_mutex);
-        full_img = QImage(width, height, QImage::Format_ARGB32_Premultiplied);
-        full_img.fill(qRgba(0, 0, 0, 0));
-    }
-    uchar* _data = new uchar[4 * width * height];
-    QImage _img(_data, width, height, QImage::Format_ARGB32_Premultiplied);
-    std::function<void(int)> function([this, left, top, xstep, ystep, width, height, _data](int y) -> void {
+    QImage _img(width, height, QImage::Format_ARGB32_Premultiplied);
+    std::function<void(int)> function([this, left, top, xstep, ystep, width, height, &_img](int y) -> void {
         if (this->cancelled) return;
-        VectorR px = (VectorR)alloca(sizeof(Number)*width);
+        VectorR px = reinterpret_cast<VectorR>(alloca(sizeof(Number) * width));
         {
             Number _x = left;
             for (int x = 0; x < width; ++x) {
@@ -104,16 +99,18 @@ void InequalityGraph::restart() {
         s.insert(std::make_pair(this->y, &Y));
         std::unique_ptr<Number[]> result(this->rel->substitute(s)->evaluateVector(width));
         if (this->cancelled) return;
-        QRgb* __restrict__ p = reinterpret_cast<QRgb*>(_data);
-        p += width * y;
+        QRgb* __restrict__ p = reinterpret_cast<QRgb*>(_img.scanLine(y));
         for (int x = 0; x < width; ++x) {
             *p++ = qRgba(0, 0, 0, result[x] ? 255 : 0);
         }
     });
-    QFuture<void> fut = QtConcurrent::map(lines, function);
-    fut.waitForFinished();
-    m_img = downsample(_img);
-    delete[] _data;
+    QtConcurrent::blockingMap(lines, function);
+    if (cancelled) return;
+    _img = downsample(_img);
+    {
+        QMutexLocker locker(&img_mutex);
+        m_img = _img;
+    }
     emit updated();
 }
 
