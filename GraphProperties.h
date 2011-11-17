@@ -19,6 +19,7 @@ public:
     GraphProperties(QWidget* parent = 0);
 signals:
     void equationChanged(QObject* id, Equation* str, Variable x, Variable y);
+    void inequalityChanged(QObject* id, Inequality* str, Variable x, Variable y);
     void parametricChanged(QObject* id, Expression* x, Expression* y, Variable t, Number tMin, Number tMax);
 //    void deleteRequest();
 public slots:

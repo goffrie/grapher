@@ -256,6 +256,37 @@ struct Equation : public Thing {
     static std::unique_ptr<Equation> create(EPtr _a, EPtr _b) { return std::unique_ptr<Equation>(new Equation(std::move(_a), std::move(_b))); }
     std::string toString(int prec = -1) const { return wrap(prec, Precedence::Eq, a->toString(Precedence::Eq) + " = " + b->toString(Precedence::Eq)); }
 };
+struct Inequality : public Thing {
+    EPtr a, b;
+    enum Type {
+        LT,
+        GT,
+        LTE,
+        GTE
+    };
+    Type type;
+    static std::string sign(Type t) {
+        switch (t) {
+            case LT: return "<";
+            case GT: return ">";
+            case LTE: return "<=";
+            case GTE: return ">=";
+        }
+    }
+    static Type fromSign(std::string t) {
+        if (t == "<") return LT;
+        if (t == ">") return GT;
+        if (t == "<=") return LTE;
+        if (t == ">=") return GTE;
+        std::terminate();
+    }
+    Inequality(EPtr _a, EPtr _b, Type _t) : a(std::move(_a)), b(std::move(_b)), type(_t) { }
+    static std::unique_ptr<Inequality> create(EPtr _a, EPtr _b, Type _t) { return std::unique_ptr<Inequality>(new Inequality(std::move(_a), std::move(_b), _t)); }
+    std::unique_ptr<Inequality> substitute(const Expression::Subst& s) const { return create(a->substitute(s), b->substitute(s), type); }
+    std::unique_ptr<Inequality> simplify() const;
+    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Eq, a->toString(Precedence::Eq) + " " + sign(type) + " " + b->toString(Precedence::Eq)); }
+    Vector evaluateVector(std::size_t size) const;
+};
 /*
 struct Function : public Thing {
 	struct ArgumentMismatchException { };

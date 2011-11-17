@@ -16,12 +16,20 @@ void GraphProperties::textChanged() {
             std::unordered_map<std::string, Expression*> vars;
             vars.insert(std::make_pair<std::string, Expression*>("x", &x));
             vars.insert(std::make_pair<std::string, Expression*>("y", &y));
-            auto eqn = dynamic_unique_cast<Equation>(Parser::parse(rel_equation->text().toStdString(), vars));
+            std::unique_ptr<Thing> thing = Parser::parse(rel_equation->text().toStdString(), vars);
+            Equation* eqn = dynamic_cast<Equation*>(thing.get());
             if (!eqn) {
-                setErrorMsg(QLatin1String("Didn't get an equation!"));
+                auto ineq = dynamic_unique_cast<Inequality>(std::move(thing));
+                if (!ineq) {
+                    setErrorMsg(QLatin1String("Didn't get an equation!"));
+                } else {
+                    setErrorMsg(QString());
+                    emit inequalityChanged(this, ineq.release(), x, y);
+                }
             } else {
                 setErrorMsg(QString());
-                emit equationChanged(this, eqn.release(), x, y);
+                emit equationChanged(this, eqn, x, y);
+                thing.release();
             }
         } else if (current == parametric_tab) {
             double tMin = par_tMin->text().toDouble(), tMax = par_tMax->text().toDouble();

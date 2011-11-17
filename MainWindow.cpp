@@ -47,6 +47,7 @@ void MainWindow::newGraph() {
     graphsLayout->addWidget(newGraph);
     graph->addGraph(newGraph);
     connect(newGraph, SIGNAL(equationChanged(QObject*, Equation*, Variable, Variable)), graph, SLOT(changeEquation(QObject*, Equation*, Variable, Variable)));
+    connect(newGraph, SIGNAL(inequalityChanged(QObject*, Inequality*, Variable, Variable)), graph, SLOT(changeInequality(QObject*, Inequality*, Variable, Variable)));
     connect(newGraph, SIGNAL(parametricChanged(QObject*, Expression*, Expression*, Variable, Number, Number)), graph, SLOT(changeParametric(QObject*, Expression*, Expression*, Variable, Number, Number)));
 }
 

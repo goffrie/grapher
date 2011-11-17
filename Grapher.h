@@ -27,6 +27,7 @@ public:
 public slots:
     void idDeleted(QObject* id);
     void changeEquation(QObject* id, Equation* eqn, Variable x, Variable y);
+    void changeInequality(QObject* id, Inequality* eqn, Variable x, Variable y);
     void changeParametric(QObject* id, Expression* x, Expression* y, Variable t, Number tMin, Number tMax);
     void resized();
     void setWindow(QRectF window);

@@ -80,6 +80,21 @@ void Grapher::changeEquation(QObject* id, Equation* eqn, Variable x, Variable y)
     graph->setupRestart(transform, width(), height());
 }
 
+void Grapher::changeInequality(QObject* id, Inequality* eqn, Variable x, Variable y) {
+    Graph* g_graph = graphs[id];
+    InequalityGraph* graph = qobject_cast<InequalityGraph*>(g_graph);
+    if (graph == NULL) {
+        if (g_graph) {
+            g_graph->cancel();
+            delete g_graph;
+        }
+        graphs[id] = graph = new InequalityGraph(this);
+        connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
+    }
+    graph->reset(std::unique_ptr<Inequality>(eqn), x, y);
+    graph->setupRestart(transform, width(), height());
+}
+
 void Grapher::changeParametric(QObject* id, Expression* x, Expression* y, Variable t, Number tMin, Number tMax) {
     Graph* g_graph = graphs[id];
     ParametricGraph* graph = qobject_cast<ParametricGraph*>(g_graph);

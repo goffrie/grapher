@@ -5,6 +5,7 @@
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QImage>
+#include <QMutex>
 #include <QTransform>
 #include <memory>
 
@@ -14,7 +15,40 @@ class Graph : public QObject {
     Q_OBJECT
 public:
     Graph(QObject* parent);
-    virtual ~Graph();
+    virtual ~Graph() { }
+    virtual void setupRestart(const QTransform& t, int width, int height) = 0;
+    virtual QImage img() = 0;
+    virtual void cancel() = 0;
+signals:
+    void updated();
+};
+
+class InequalityGraph : public Graph {
+    Q_OBJECT
+public:
+    InequalityGraph(QObject* parent);
+    void reset(std::unique_ptr<Inequality> rel, const Variable& x, const Variable& y);
+    virtual void setupRestart(const QTransform& t, int width, int height);
+    virtual QImage img();
+    virtual void cancel();
+protected:
+    std::unique_ptr<Inequality> rel;
+    Variable x, y;
+    
+    QFuture<void> future;
+    QImage full_img;
+    QImage m_img;
+    QMutex img_mutex;
+    int width, height;
+    QTransform transform;
+    bool cancelled;
+    void restart();
+};
+
+class IteratingGraph : public Graph {
+    Q_OBJECT
+public:
+    IteratingGraph(QObject* parent);
     void setupRestart(const QTransform& t, int width, int height);
     QImage img() { return m_img; }
     void cancel();
@@ -28,11 +62,9 @@ protected:
     virtual QImage restart() = 0;
 protected slots:
     virtual void iterateAgain() = 0;
-signals:
-    void updated();
 };
 
-class ImplicitGraph : public Graph {
+class ImplicitGraph : public IteratingGraph {
     Q_OBJECT
     
     Variable x, y;
@@ -53,7 +85,7 @@ protected slots:
     virtual void iterateAgain();
 };
 
-class ParametricGraph : public Graph {
+class ParametricGraph : public IteratingGraph {
     Q_OBJECT
     
     Variable t;

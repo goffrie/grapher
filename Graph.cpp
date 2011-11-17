@@ -1,5 +1,6 @@
 #include "Graph.h"
 
+#include <QtConcurrentMap>
 #include <QtConcurrentRun>
 
 #include <QPainter>
@@ -7,6 +8,7 @@
 #include <QtGlobal>
 #include <QDebug>
 #include <iostream>
+#include <functional>
 
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
@@ -18,30 +20,110 @@ QImage downsample(QImage in) {
     return in.scaled(in.width() / supersample, in.height() / supersample, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
-Graph::Graph(QObject* parent): QObject(parent), watcher(new QFutureWatcher<QImage>(this)) {
+Graph::Graph(QObject* parent): QObject(parent) {
+}
+
+IteratingGraph::IteratingGraph(QObject* parent): Graph(parent), watcher(new QFutureWatcher<QImage>(this)) {
     connect(watcher, SIGNAL(finished()), this, SLOT(iterateAgain()));
 }
 
-Graph::~Graph() {
-    cancel();
-}
-
-void Graph::cancel() {
+void IteratingGraph::cancel() {
     cancelled = true;
     future.waitForFinished();
     cancelled = false;
 }
 
-void Graph::setupRestart(const QTransform& t, int _width, int _height) {
+void IteratingGraph::setupRestart(const QTransform& t, int _width, int _height) {
     cancel();
     width = _width * supersample;
     height = _height * supersample;
     transform = t;
-    future = QtConcurrent::run(this, &Graph::restart);
+    future = QtConcurrent::run(this, &IteratingGraph::restart);
     watcher->setFuture(future);
 }
 
-ImplicitGraph::ImplicitGraph(QObject* parent) : Graph(parent) {
+InequalityGraph::InequalityGraph(QObject* parent): Graph(parent) {
+}
+
+QImage InequalityGraph::img()
+{
+    img_mutex.lock();
+    QImage r = m_img.copy();
+    img_mutex.unlock();
+    return r;
+}
+
+void InequalityGraph::reset(std::unique_ptr<Inequality> _rel, const Variable& _x, const Variable& _y) {
+    rel = _rel->simplify();
+    x = _x;
+    y = _y;
+}
+
+void InequalityGraph::setupRestart(const QTransform& t, int _width, int _height) {
+    cancel();
+    width = _width * supersample;
+    height = _height * supersample;
+    transform = t;
+    future = QtConcurrent::run(this, &InequalityGraph::restart);
+}
+
+void InequalityGraph::restart() {
+    QList<int> lines;
+    for (int i = 0; i < height; ++i) lines.append(i);
+    Number left, right, top, bottom;
+    {
+        QTransform ti = transform.inverted();
+        QPointF tl = QPointF(0, 0) * ti;
+        QPointF br = (QPointF(width-1, height-1) * 0.5) * ti;
+        left = tl.x(); top = tl.y();
+        right = br.x(); bottom = br.y();
+    }
+    Number xstep = (right - left) / width;
+    Number ystep = (top - bottom) / height;
+    {QMutexLocker locker(&img_mutex);
+        full_img = QImage(width, height, QImage::Format_ARGB32_Premultiplied);
+        full_img.fill(qRgba(0, 0, 0, 0));
+    }
+    uchar* _data = new uchar[4 * width * height];
+    QImage _img(_data, width, height, QImage::Format_ARGB32_Premultiplied);
+    std::function<void(int)> function([this, left, top, xstep, ystep, width, height, _data](int y) -> void {
+        if (this->cancelled) return;
+        VectorR px = (VectorR)alloca(sizeof(Number)*width);
+        {
+            Number _x = left;
+            for (int x = 0; x < width; ++x) {
+                px[x] = _x;
+                _x += xstep;
+            }
+        }
+        if (this->cancelled) return;
+        Expression::Subst s;
+        External X(px);
+        Constant Y(top - y * ystep);
+        s.insert(std::make_pair(this->x, &X));
+        s.insert(std::make_pair(this->y, &Y));
+        std::unique_ptr<Number[]> result(this->rel->substitute(s)->evaluateVector(width));
+        if (this->cancelled) return;
+        QRgb* __restrict__ p = reinterpret_cast<QRgb*>(_data);
+        p += width * y;
+        for (int x = 0; x < width; ++x) {
+            *p++ = qRgba(0, 0, 0, result[x] ? 255 : 0);
+        }
+    });
+    QFuture<void> fut = QtConcurrent::map(lines, function);
+    fut.waitForFinished();
+    m_img = downsample(_img);
+    delete[] _data;
+    emit updated();
+}
+
+void InequalityGraph::cancel() {
+    cancelled = true;
+    future.waitForFinished();
+    cancelled = false;
+}
+
+ImplicitGraph::ImplicitGraph(QObject* parent) : IteratingGraph(parent) {
 }
 
 void ImplicitGraph::reset(const Equation& rel, const Variable& _x, const Variable& _y) {
@@ -210,7 +292,7 @@ QImage ImplicitGraph::iterate() {
     return downsample(draw());
 }
 
-ParametricGraph::ParametricGraph(QObject* parent): Graph(parent) {
+ParametricGraph::ParametricGraph(QObject* parent): IteratingGraph(parent) {
 }
 
 void ParametricGraph::reset(std::unique_ptr<Expression> _x, std::unique_ptr<Expression> _y, const Variable& _t, Number _tMin, Number _tMax) {

@@ -56,7 +56,7 @@ struct shunt_visitor : public boost::static_visitor<> {
     };
     static Associativity associativity(char op) {
         switch (op) {
-            case '*': case '/': case '-': case '+': case '=': return LeftAssociative;
+            case '*': case '/': case '-': case '+': case '=': case '<': case '>': return LeftAssociative;
             case '^': case '_': return RightAssociative;
             default: throw Parser::UnknownOperatorException(op);
         }
@@ -67,7 +67,7 @@ struct shunt_visitor : public boost::static_visitor<> {
             case '*': case '/': return 6;
             case '_': return 4;
             case '+': case '-': return 3;
-            case '=': return 0;
+            case '=': case '<': case '>': return 0;
             default: throw Parser::UnknownOperatorException(op);
         }
     }
@@ -142,6 +142,7 @@ if (func == #name) { \
                         break;
                     }
                     case '=': output.push_back(Equation::create(std::move(a), std::move(b))); break;
+                    case '<': case '>': output.push_back(Inequality::create(std::move(a), std::move(b), Inequality::fromSign(std::string(1, c)))); break;
                     default: std::terminate();
                 }
             }
@@ -171,7 +172,7 @@ if (func == #name) { \
         case '_':
             operators.push_back(op);
             break;
-        case '*': case '/': case '-': case '+': case '^': case '=': {
+        case '*': case '/': case '-': case '+': case '^': case '=': case '<': case '>': {
             int last = operators.size();
             for (int i = last; i--; ) {
                 char *_c = boost::get<char>(&operators[i]);

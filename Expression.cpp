@@ -146,6 +146,24 @@ Vector Div::evaluateVector(std::size_t size) const {
     return _a;
 }
 
+Vector Inequality::evaluateVector(size_t size) const {
+    VectorR _a = a->evaluateVector(size);
+    VectorR _b = b->evaluateVector(size);
+#define IOP(n, op) \
+        case n: \
+            for (std::size_t i = 0; i < size; ++i) _a[i] = _a[i] op _b[i]; \
+            break;
+    switch (type) {
+        IOP(LT, <)
+        IOP(GT, >)
+        IOP(LTE, <=)
+        IOP(GTE, >=)
+    }
+#undef IOP
+    delete[] _b;
+    return _a;
+}
+
 EPtr UnaryOp::simplify() const {
     EPtr as = a->simplify();
     Constant* ac = dynamic_cast<Constant*>(as.get());
@@ -403,6 +421,10 @@ EPtr PowInt::simplify() const {
         return std::move(as);
     }
     return PowInt::create(std::move(as), b);
+}
+
+std::unique_ptr<Inequality> Inequality::simplify() const {
+    return Inequality::create(Sub::create(a->simplify(), b->simplify())->simplify(), Constant::create(0), type);
 }
 
 // d(-u)/dx = -du/dx
