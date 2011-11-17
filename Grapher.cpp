@@ -65,7 +65,10 @@ void Grapher::changeEquation(QObject* id, Equation* eqn, Variable x, Variable y)
     Graph* g_graph = graphs[id];
     ImplicitGraph* graph = qobject_cast<ImplicitGraph*>(g_graph);
     if (graph == NULL) {
-        delete g_graph;
+        if (g_graph) {
+            g_graph->cancel();
+            delete g_graph;
+        }
         graphs[id] = graph = new ImplicitGraph(this);
         connect(graph, SIGNAL(updated()), SLOT(update()));
     }
@@ -78,7 +81,10 @@ void Grapher::changeParametric(QObject* id, Expression* x, Expression* y, Variab
     Graph* g_graph = graphs[id];
     ParametricGraph* graph = qobject_cast<ParametricGraph*>(g_graph);
     if (graph == NULL) {
-        delete g_graph;
+        if (g_graph) {
+            g_graph->cancel();
+            delete g_graph;
+        }
         graphs[id] = graph = new ParametricGraph(this);
         connect(graph, SIGNAL(updated()), SLOT(update()));
     }

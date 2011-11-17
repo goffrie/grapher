@@ -10,6 +10,13 @@
 
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
+#include <QTime>
+
+constexpr int supersample = 2;
+
+QImage downsample(QImage in) {
+    return in.scaled(in.width() / supersample, in.height() / supersample, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+}
 
 Graph::Graph(QObject* parent): QObject(parent), watcher(new QFutureWatcher<QImage>(this)) {
     connect(watcher, SIGNAL(finished()), this, SLOT(iterateAgain()));
@@ -26,8 +33,8 @@ void Graph::cancel() {
 
 void Graph::setupRestart(const QTransform& t, int _width, int _height) {
     cancel();
-    width = _width;
-    height = _height;
+    width = _width * supersample;
+    height = _height * supersample;
     transform = t;
     future = QtConcurrent::run(this, &Graph::restart);
     watcher->setFuture(future);
@@ -98,7 +105,7 @@ QImage ImplicitGraph::restart() {
             ++numPts;
         }
     }
-    return draw();
+    return downsample(draw());
 }
 
 void ImplicitGraph::iterateAgain() {
@@ -114,10 +121,11 @@ QImage ImplicitGraph::draw() {
     QImage _img(width, height, QImage::Format_ARGB32_Premultiplied);
     _img.fill(qRgba(0, 0, 0, 0));
     QPainter painter(&_img);
-    painter.setPen(Qt::black);
-    painter.setTransform(transform, true);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(Qt::black);
+    painter.scale(supersample, supersample);
     for (std::size_t i = 0; i < numPts; ++i) {
-        painter.drawPoint(QPointF(m_px[i], m_py[i]));
+        painter.fillRect(QRectF(QPointF(m_px[i], m_py[i]) * transform, QSizeF(0, 0)).adjusted(-0.5, -0.5, 0.5, 0.5), Qt::black);
     }
     painter.end();
     return _img;
@@ -179,11 +187,10 @@ QImage ImplicitGraph::iterate() {
     delete[] gx2;
     delete[] gy2;
     delete[] gxy;
-    return draw();
+    return downsample(draw());
 }
 
 ParametricGraph::ParametricGraph(QObject* parent): Graph(parent) {
-
 }
 
 void ParametricGraph::reset(std::unique_ptr<Expression> _x, std::unique_ptr<Expression> _y, const Variable& _t, Number _tMin, Number _tMax) {
@@ -228,15 +235,16 @@ QImage ParametricGraph::restart() {
     m_vx.reset(vx);
     m_vy.reset(vy);
     m_pt.reset(pt);
-    return _img;
+    return downsample(_img);
 }
 
 void ParametricGraph::draw(Vector vx, Vector vy, size_t n) {
     QPainter painter(&_img);
-    painter.setPen(Qt::black);
-    painter.setTransform(transform, true);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(Qt::black);
+    painter.scale(supersample, supersample);
     for (std::size_t i = 0; i < n; ++i) {
-        painter.drawPoint(QPointF(vx[i], vy[i]));
+        painter.fillRect(QRectF(QPointF(vx[i], vy[i]) * transform, QSizeF(0, 0)).adjusted(-0.5, -0.5, 0.5, 0.5), Qt::black);
     }
     painter.end();
 }
@@ -250,24 +258,8 @@ QImage ParametricGraph::iterate() {
     Number xscale = transform.m11(), yscale = transform.m22();
     bool kept = false;
     for (std::size_t i = 1; i < numPts; ++i) {
-/*        Q_ASSERT(!std::isnan(m_pt[i-1]));
-        if (std::isnan(m_pt[i])) {
-            if (kept) {
-                // fill in gaps with NaN to reduce wasted calculations
-                nt[numNT] = GSL_NAN;
-                Q_ASSERT(gsl_isnan((nx[numNT] = ny[numNT] = GSL_NAN)));
-                ++numNT;
-            }
-            kept = false;
-            ++i;
-            continue;
-        }*/
         Number dx = (m_vx[i] - m_vx[i-1]) * xscale, dy = (m_vy[i] - m_vy[i-1]) * yscale;
         if (gsl_finite(m_pt[i]) && gsl_finite(m_pt[i-1]) && m_pt[i] != m_pt[i-1] && dx*dx + dy*dy > 0.25) {
-            if (!gsl_finite(m_vx[i])) std::terminate();
-            if (!gsl_finite(m_vx[i-1])) std::terminate();
-            if (!gsl_finite(m_vy[i])) std::terminate();
-            if (!gsl_finite(m_vy[i-1])) std::terminate();
             // deepen
             if (!kept) {
                 nt[numNT] = m_pt[i-1];
@@ -306,7 +298,7 @@ QImage ParametricGraph::iterate() {
         m_vx.reset();
         m_vy.reset();
         numPts = 0;
-        return _img;
+        return downsample(_img);
     }
     VectorR vx, vy;
     {
@@ -351,7 +343,7 @@ QImage ParametricGraph::iterate() {
     drawer.waitForFinished();
     delete[] vx;
     delete[] vy;
-    return _img;
+    return downsample(_img);
 }
 
 
