@@ -173,8 +173,8 @@ if (func == #name) { \
             operators.push_back(op);
             break;
         case '*': case '/': case '-': case '+': case '^': case '=': case '<': case '>': {
-            int last = operators.size();
-            for (int i = last; i--; ) {
+            std::size_t last = operators.size();
+            for (std::size_t i = last; i--; ) {
                 char *_c = boost::get<char>(&operators[i]);
                 if (_c == NULL) throw Parser::UnexpectedOperatorException();
                 char c = *_c;
