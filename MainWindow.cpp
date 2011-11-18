@@ -39,6 +39,16 @@ MainWindow::MainWindow() {
     graph->resized();
     graph->setWindow(QRectF(-15, -15, 30, 30));
 #endif
+    QSplitterHandle *handle = splitter->handle(1);
+    QVBoxLayout *layout = new QVBoxLayout(handle);
+    layout->setSpacing(0);
+    layout->setMargin(0);
+
+    QFrame *line = new QFrame(handle);
+    line->setFrameShape(QFrame::VLine);
+    line->setFrameShadow(QFrame::Sunken);
+    layout->addWidget(line);
+
     windowSettings->onChanged();
 }
 
