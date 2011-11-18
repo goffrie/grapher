@@ -13,6 +13,8 @@
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
 
+#include <malloc.h>
+
 #include <xmmintrin.h>
 typedef __m128 v4sf;
 #define VECTOR_LOOP(s) for (std::size_t i = 0; i < s; i += SSE_VECTOR_SIZE)
