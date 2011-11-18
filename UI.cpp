@@ -17,6 +17,7 @@ UI::UI(UIFactory* factory, QWidget* parent): QSplitter(parent), m_factory(factor
         line->setFrameShape(QFrame::VLine);
         line->setFrameShadow(QFrame::Sunken);
         layout->addWidget(line);
+        layout->addWidget(line);
     }
 
     {
