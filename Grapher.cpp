@@ -54,8 +54,10 @@ void Grapher::resizeEvent(QResizeEvent*) {
 void Grapher::deleteGraph(QObject* id) {
     QMap<QObject*, Graph*>::iterator it = graphs.find(id);
     Graph* graph = it.value();
-    graph->cancel();
-    graph->deleteLater();
+    if (graph) {
+        graph->cancel();
+        graph->deleteLater();
+    }
     graphs.erase(it);
     scheduleUpdate(true);
 }
