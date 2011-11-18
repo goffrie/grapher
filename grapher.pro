@@ -153,7 +153,7 @@ SOURCES += Expression.cpp \
            MainWindow.cpp \
            Parser.cpp \
            WindowSettings.cpp
-QMAKE_CXXFLAGS_DEBUG += -ggdb -ffast-math -ftree-vectorize -std=c++0x -march=pentium4 -fno-omit-frame-pointer -static-libgcc
+QMAKE_CXXFLAGS_DEBUG += -ggdb -ffast-math -ftree-vectorize -std=c++0x -march=pentium4 -fno-omit-frame-pointer
 QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -DQT_NO_DEBUG -O3 -ffast-math -ftree-vectorize -std=c++0x -march=pentium4
 
-LIBS += "C:\Documents and Settings\Generic User\Desktop\grapher\libgsl.a" -static-libgcc -static-libstdc++
+LIBS += "C:\\Documents and Settings\\Generic User\\Desktop\\grapher\\libgsl.a"
