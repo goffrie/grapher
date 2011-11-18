@@ -15,7 +15,6 @@ void WindowSettings::onChanged() {
     qreal xmax = xMax->text().toDouble();
     qreal ymin = yMin->text().toDouble();
     qreal ymax = yMax->text().toDouble();
-    qDebug() << "onChanged" << xmin << xmax << ymin << ymax;
     bool good = true;
     if (xmax <= xmin) {
         
