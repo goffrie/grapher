@@ -1,15 +1,19 @@
 #ifndef _EXPRESSION_H_
 #define _EXPRESSION_H_
 
-#include <boost/lexical_cast.hpp>
+#include <exception>
+
+#include <memory>
+#include <unordered_map>
 #include <vector>
 #include <set>
 #include <string>
+
 #include <cmath>
 #include <gsl/gsl_sf_gamma.h>
 #include <gsl/gsl_sf_psi.h>
-#include <memory>
-#include <unordered_map>
+#include <boost/lexical_cast.hpp>
+
 #include <QMetaType>
 
 typedef double Number;
@@ -265,6 +269,7 @@ struct Inequality : public Thing {
         GTE
     };
     Type type;
+    struct UnknownSignException : public std::exception { const char* what() const throw() { return "Unknown inequality sign"; } };
     static std::string sign(Type t) {
         switch (t) {
             case LT: return "<";
@@ -272,13 +277,14 @@ struct Inequality : public Thing {
             case LTE: return "<=";
             case GTE: return ">=";
         }
+        throw UnknownSignException();
     }
     static Type fromSign(std::string t) {
         if (t == "<") return LT;
         if (t == ">") return GT;
         if (t == "<=") return LTE;
         if (t == ">=") return GTE;
-        std::terminate();
+        throw UnknownSignException();
     }
     Inequality(EPtr _a, EPtr _b, Type _t) : a(std::move(_a)), b(std::move(_b)), type(_t) { }
     static std::unique_ptr<Inequality> create(EPtr _a, EPtr _b, Type _t) { return std::unique_ptr<Inequality>(new Inequality(std::move(_a), std::move(_b), _t)); }
