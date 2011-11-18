@@ -66,49 +66,15 @@ void Grapher::idDeleted(QObject* id) {
     deleteGraph(id);
 }
 
-void Grapher::changeEquation(QObject* id, Equation* eqn, Variable x, Variable y) {
+void Grapher::changeGraph(QObject* id, Graph* graph) {
     Graph* g_graph = graphs[id];
-    ImplicitGraph* graph = qobject_cast<ImplicitGraph*>(g_graph);
-    if (graph == NULL) {
-        if (g_graph) {
-            g_graph->cancel();
-            delete g_graph;
-        }
-        graphs[id] = graph = new ImplicitGraph(this);
-        connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
+    if (g_graph) {
+        g_graph->cancel();
+        delete g_graph;
     }
-    graph->reset(*eqn, x, y);
-    delete eqn;
-    graph->setupRestart(transform, width(), height());
-}
-
-void Grapher::changeInequality(QObject* id, Inequality* eqn, Variable x, Variable y) {
-    Graph* g_graph = graphs[id];
-    InequalityGraph* graph = qobject_cast<InequalityGraph*>(g_graph);
-    if (graph == NULL) {
-        if (g_graph) {
-            g_graph->cancel();
-            delete g_graph;
-        }
-        graphs[id] = graph = new InequalityGraph(this);
-        connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
-    }
-    graph->reset(std::unique_ptr<Inequality>(eqn), x, y);
-    graph->setupRestart(transform, width(), height());
-}
-
-void Grapher::changeParametric(QObject* id, Expression* x, Expression* y, Variable t, Number tMin, Number tMax) {
-    Graph* g_graph = graphs[id];
-    ParametricGraph* graph = qobject_cast<ParametricGraph*>(g_graph);
-    if (graph == NULL) {
-        if (g_graph) {
-            g_graph->cancel();
-            delete g_graph;
-        }
-        graphs[id] = graph = new ParametricGraph(this);
-        connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
-    }
-    graph->reset(EPtr(x), EPtr(y), t, tMin, tMax);
+    graphs[id] = graph;
+    graph->setParent(this);
+    connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
     graph->setupRestart(transform, width(), height());
 }
 

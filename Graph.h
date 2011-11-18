@@ -14,7 +14,7 @@
 class Graph : public QObject {
     Q_OBJECT
 public:
-    Graph(QObject* parent);
+    Graph(QObject* parent = 0);
     virtual ~Graph() { }
     virtual void setupRestart(const QTransform& t, int width, int height) = 0;
     virtual QImage img() = 0;
@@ -26,7 +26,7 @@ signals:
 class InequalityGraph : public Graph {
     Q_OBJECT
 public:
-    InequalityGraph(QObject* parent);
+    InequalityGraph(QObject* parent = 0);
     void reset(std::unique_ptr<Inequality> rel, const Variable& x, const Variable& y);
     virtual void setupRestart(const QTransform& t, int width, int height);
     virtual QImage img();
@@ -47,7 +47,7 @@ protected:
 class IteratingGraph : public Graph {
     Q_OBJECT
 public:
-    IteratingGraph(QObject* parent);
+    IteratingGraph(QObject* parent = 0);
     void setupRestart(const QTransform& t, int width, int height);
     QImage img() { return m_img; }
     void cancel();
@@ -77,7 +77,7 @@ class ImplicitGraph : public IteratingGraph {
     QImage draw();
 public:
     ImplicitGraph(QObject* parent = 0);
-    void reset(const Equation& rel, const Variable& x, const Variable& y);
+    void reset(std::unique_ptr<Equation> rel, const Variable& x, const Variable& y);
 protected:
     virtual QImage restart();
 protected slots:

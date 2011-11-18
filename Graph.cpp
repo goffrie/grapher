@@ -123,21 +123,16 @@ void InequalityGraph::cancel() {
 ImplicitGraph::ImplicitGraph(QObject* parent) : IteratingGraph(parent) {
 }
 
-void ImplicitGraph::reset(const Equation& rel, const Variable& _x, const Variable& _y) {
+void ImplicitGraph::reset(std::unique_ptr<Equation> rel, const Variable& _x, const Variable& _y) {
     cancel();
     numPts = 0;
-    std::cerr << rel.toString() << std::endl;
-    eqn = Sub::create(rel.a->ecopy(), rel.b->ecopy());
+    std::cerr << rel->toString() << std::endl;
+    eqn = Sub::create(std::move(rel->a), std::move(rel->b))->simplify();
     std::cerr << eqn->toString() << std::endl;
     x = _x;
     y = _y;
-    _dx = eqn->derivative(x);
-    _dy = eqn->derivative(y);
-    std::cerr << _dx->toString() << '|' << _dy->toString() << std::endl;
-    eqn = eqn->simplify();
-    _dx = _dx->simplify();
-    _dy = _dy->simplify();
-    std::cerr << eqn->toString() << std::endl;
+    _dx = eqn->derivative(x)->simplify();
+    _dy = eqn->derivative(y)->simplify();
     std::cerr << _dx->toString() << '|' << _dy->toString() << std::endl;
     resubstitute();
 }
