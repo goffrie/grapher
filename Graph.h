@@ -16,9 +16,14 @@ class Graph : public QObject {
 public:
     Graph(QObject* parent = 0);
     virtual ~Graph() { }
-    virtual void setupRestart(const QTransform& t, int width, int height) = 0;
+    void setupRestart(const QTransform& t, int width, int height);
+    
     virtual QImage img() = 0;
     virtual void cancel() = 0;
+protected:
+    virtual void startThread() = 0;
+    int width, height;
+    QTransform transform;
 signals:
     void updated();
 };
@@ -28,18 +33,17 @@ class InequalityGraph : public Graph {
 public:
     InequalityGraph(QObject* parent = 0);
     void reset(std::unique_ptr<Inequality> rel, const Variable& x, const Variable& y);
-    virtual void setupRestart(const QTransform& t, int width, int height);
     virtual QImage img();
     virtual void cancel();
 protected:
+    virtual void startThread();
+
     std::unique_ptr<Inequality> rel;
     Variable x, y;
     
     QFuture<void> future;
     QImage m_img;
     QMutex img_mutex;
-    int width, height;
-    QTransform transform;
     bool cancelled;
     void restart();
 };
@@ -48,14 +52,13 @@ class IteratingGraph : public Graph {
     Q_OBJECT
 public:
     IteratingGraph(QObject* parent = 0);
-    void setupRestart(const QTransform& t, int width, int height);
     QImage img() { return m_img; }
     void cancel();
 protected:
+    virtual void startThread();
+
     QFuture<QImage> future;
     QFutureWatcher<QImage>* watcher;
-    int width, height;
-    QTransform transform;
     QImage m_img;
     bool cancelled;
     virtual QImage restart() = 0;

@@ -23,6 +23,14 @@ QImage downsample(QImage in) {
 Graph::Graph(QObject* parent): QObject(parent) {
 }
 
+void Graph::setupRestart(const QTransform& t, int _width, int _height) {
+    cancel();
+    width = _width * supersample;
+    height = _height * supersample;
+    transform = t;
+    startThread();
+}
+
 IteratingGraph::IteratingGraph(QObject* parent): Graph(parent), watcher(new QFutureWatcher<QImage>(this)) {
     connect(watcher, SIGNAL(finished()), this, SLOT(iterateAgain()));
 }
@@ -33,11 +41,7 @@ void IteratingGraph::cancel() {
     cancelled = false;
 }
 
-void IteratingGraph::setupRestart(const QTransform& t, int _width, int _height) {
-    cancel();
-    width = _width * supersample;
-    height = _height * supersample;
-    transform = t;
+void IteratingGraph::startThread() {
     future = QtConcurrent::run(this, &IteratingGraph::restart);
     watcher->setFuture(future);
 }
@@ -59,11 +63,7 @@ void InequalityGraph::reset(std::unique_ptr<Inequality> _rel, const Variable& _x
     y = _y;
 }
 
-void InequalityGraph::setupRestart(const QTransform& t, int _width, int _height) {
-    cancel();
-    width = _width * supersample;
-    height = _height * supersample;
-    transform = t;
+void InequalityGraph::startThread() {
     future = QtConcurrent::run(this, &InequalityGraph::restart);
 }
 
