@@ -56,7 +56,7 @@ void Grapher::deleteGraph(QObject* id) {
     Graph* graph = it.value();
     if (graph) {
         graph->cancel();
-        graph->deleteLater();
+        delete graph;
     }
     graphs.erase(it);
     scheduleUpdate(true);
