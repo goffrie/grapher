@@ -12,7 +12,6 @@
 
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
-#include <QTime>
 
 constexpr int supersample = 2;
 
@@ -28,7 +27,9 @@ void Graph::setupRestart(const QTransform& t, int _width, int _height) {
     width = _width * supersample;
     height = _height * supersample;
     transform = t;
-    startThread();
+    if (width > 0 && height > 0 && transform.isAffine()) {
+        startThread();
+    }
 }
 
 IteratingGraph::IteratingGraph(QObject* parent): Graph(parent), watcher(new QFutureWatcher<QImage>(this)) {
@@ -38,6 +39,7 @@ IteratingGraph::IteratingGraph(QObject* parent): Graph(parent), watcher(new QFut
 void IteratingGraph::cancel() {
     cancelled = true;
     future.waitForFinished();
+    future = QFuture<QImage>();
     cancelled = false;
 }
 
@@ -117,6 +119,7 @@ void InequalityGraph::restart() {
 void InequalityGraph::cancel() {
     cancelled = true;
     future.waitForFinished();
+    future = QFuture<void>();
     cancelled = false;
 }
 
@@ -203,6 +206,7 @@ QImage ImplicitGraph::draw() {
     QImage _img(width, height, QImage::Format_ARGB32_Premultiplied);
     _img.fill(qRgba(0, 0, 0, 0));
     QPainter painter(&_img);
+    if (!painter.isActive()) return QImage();
     painter.setPen(Qt::NoPen);
     painter.setBrush(Qt::black);
     painter.scale(supersample, supersample);
@@ -436,7 +440,6 @@ QImage ParametricGraph::iterate() {
     if (cancelled) return QImage();
     return downsample(_img);
 }
-
 
 void ParametricGraph::iterateAgain() {
     future.waitForFinished();
