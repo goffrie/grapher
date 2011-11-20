@@ -51,14 +51,15 @@ void Grapher::setShowGrid(bool _showGrid) {
     update();
 }
 
-qreal roundOneDigit(qreal n) {
+inline qreal roundOneDigit(qreal n) {
     if (n < 0) return -roundOneDigit(-n);
     if (n == 0) return 0;
     const qreal l = std::log10(n);
     const qreal f = std::pow(10, l - std::floor(l));
     return rnd_d(f) * std::pow(10, std::floor(l));
 }
-QString textRoundOneDigit(qreal n) {
+
+/*QString textRoundOneDigit(qreal n) {
     if (n < 0) return QString("-") + textRoundOneDigit(-n);
     if (n == 0) return QString("0");
     const qreal l = std::log10(n);
@@ -75,45 +76,48 @@ QString textRoundOneDigit(qreal n) {
     } else {
         return QString("0.") + QString(-il-1, '0') + f;
     }
+}*/
+
+static uint32_t table[65536];
+static bool tableGenerated = false;
+void genTable() {
+    if (!tableGenerated) {
+        for (uint32_t b = 1; b < 65536; ++b) {
+            table[b] = (((uint64_t) 1 << (uint64_t) 32) + b - 1) / b;
+        }
+        tableGenerated = true;
+    }
 }
 
 QImage combine(QList<QImage> images) {
+    genTable();
     QSize size = images[0].size();
     const int width = size.width();
     const int height = size.height();
-    unsigned* data = new unsigned[width * height * 4];
-    memset(data, 0, sizeof(unsigned) * width * height * 4);
+    uint16_t* data = new uint16_t[width * height * 4];
+    memset(data, 0, sizeof(uint16_t) * width * height * 4);
     foreach (const QImage& img, images) {
         Q_ASSERT(img.format() == QImage::Format_ARGB32_Premultiplied);
         Q_ASSERT(img.size() == size);
-        unsigned* p = data;
+        uint16_t* __restrict p = data;
         for (int y = 0; y < height; ++y) {
-            const uchar* q = img.scanLine(y);
+            const uchar* __restrict q = img.scanLine(y);
             for (int x = 0; x < width; ++x) {
-                *p++ += *q++;
-                *p++ += *q++;
-                *p++ += *q++;
-                *p++ += *q++;
+                for (int i = 0; i < 4; ++i) {
+                    *p++ += *q++;
+                }
             }
         }
     }
-    unsigned* p = data;
+    uint16_t* __restrict p = data;
     QImage ret(size, QImage::Format_ARGB32_Premultiplied);
     for (int y = 0; y < height; ++y) {
-        uchar* q = ret.scanLine(y);
+        uchar* __restrict q = ret.scanLine(y);
         for (int x = 0; x < width; ++x) {
-            unsigned a = p[3];
-            if (a > 255) {
-                *q++ = (uchar) ((*p++) * 255 / a);
-                *q++ = (uchar) ((*p++) * 255 / a);
-                *q++ = (uchar) ((*p++) * 255 / a);
-                *q++ = 255u;
-                ++p;
-            } else {
-                *q++ = (uchar) *p++;
-                *q++ = (uchar) *p++;
-                *q++ = (uchar) *p++;
-                *q++ = (uchar) *p++;
+            uint16_t a = p[3];
+            uint32_t multiplier = table[std::max(a, uint16_t(255u))];
+            for (int i = 0; i < 4; ++i) {
+                *q++ = (uchar) ((uint64_t(*p++ * 255u) * multiplier) >> 32);
             }
         }
     }
