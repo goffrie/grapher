@@ -170,7 +170,7 @@ void Grapher::paintEvent(QPaintEvent*) {
     
     foreach (Graph* graph, graphs) {
         if (!graph) continue;
-        painter.drawImage(0, 0, graph->img());
+        painter.drawImage(QRectF(QPointF(0, 0), size()), graph->img());
     }
 }
 
