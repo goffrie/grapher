@@ -15,8 +15,10 @@ public:
     };
 private:
     Type lastType;
+    int color;
 public:
     GraphProperties(QWidget* parent = 0);
+    virtual ~GraphProperties();
 signals:
     void graphChanged(QObject* id, Graph* graph);
 //    void deleteRequest();

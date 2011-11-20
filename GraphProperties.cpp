@@ -6,13 +6,35 @@
 
 #include <QDebug>
 #include <exception>
+#include <set>
 
 #include "dynamic_unique_cast.h"
+
+int nextColor = 0;
+std::set<int> recoveredColors;
+
+QColor getColor(int c) {
+    const qreal factor = (3 - std::sqrt(5)) / 2;
+    return QColor::fromHsvF(fmod(factor * c, 1), 0.9, 0.8);
+}
 
 GraphProperties::GraphProperties(QWidget* parent): QGroupBox(parent) {
     setupUi(this);
     par_tMin->setValidator(new QDoubleValidator());
     par_tMax->setValidator(new QDoubleValidator());
+    if (recoveredColors.size() > 0) {
+        color = *recoveredColors.begin();
+        recoveredColors.erase(recoveredColors.begin());
+    } else {
+        color = nextColor++;
+    }
+    QPalette p = colorButton->palette();
+    p.setColor(QPalette::Button, getColor(color));
+    colorButton->setPalette(p);
+}
+
+GraphProperties::~GraphProperties() {
+    recoveredColors.insert(color);
 }
 
 struct InvalidInputException : public std::exception {
@@ -42,6 +64,7 @@ void GraphProperties::textChanged() {
                 setErrorMsg(QString());
                 ImplicitGraph* graph = new ImplicitGraph;
                 graph->reset(std::move(eqn), x, y);
+                graph->setColor(getColor(color));
                 emit graphChanged(this, graph);
             } else {
                 auto ineq = dynamic_unique_cast<Inequality>(std::move(thing));
@@ -51,6 +74,7 @@ void GraphProperties::textChanged() {
                 setErrorMsg(QString());
                 InequalityGraph* graph = new InequalityGraph;
                 graph->reset(std::move(ineq), x, y);
+                graph->setColor(getColor(color));
                 emit graphChanged(this, graph);
             }
         } else if (current == parametric_tab) {
@@ -71,6 +95,7 @@ void GraphProperties::textChanged() {
             setErrorMsg(QString());
             ParametricGraph* graph = new ParametricGraph;
             graph->reset(std::move(ex), std::move(ey), t, tMin, tMax);
+            graph->setColor(getColor(color));
             emit graphChanged(this, graph);
         } else {
             qDebug() << "Unknown tab?";

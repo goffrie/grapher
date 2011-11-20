@@ -2,6 +2,7 @@
 #define _GRAPH_H_
 
 #include <QObject>
+#include <QColor>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QImage>
@@ -20,10 +21,12 @@ public:
     
     virtual QImage img() = 0;
     virtual void cancel() = 0;
+    virtual void setColor(QColor c) { color = c; }
 protected:
     virtual void startThread() = 0;
     int width, height;
     QTransform transform;
+    QColor color;
 signals:
     void updated();
 };

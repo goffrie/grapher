@@ -127,7 +127,7 @@
     </widget>
    </item>
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
+    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1,0">
      <item>
       <widget class="QPushButton" name="deleteButton">
        <property name="text">
@@ -137,6 +137,16 @@
      </item>
      <item>
       <widget class="QLabel" name="errorMsg">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="colorButton">
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
        <property name="text">
         <string/>
        </property>

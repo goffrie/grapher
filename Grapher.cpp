@@ -77,13 +77,69 @@ QString textRoundOneDigit(qreal n) {
     }
 }
 
+QImage combine(QList<QImage> images) {
+    QSize size = images[0].size();
+    const int width = size.width();
+    const int height = size.height();
+    unsigned* data = new unsigned[width * height * 4];
+    memset(data, 0, sizeof(unsigned) * width * height * 4);
+    foreach (const QImage& img, images) {
+        Q_ASSERT(img.format() == QImage::Format_ARGB32_Premultiplied);
+        Q_ASSERT(img.size() == size);
+        unsigned* p = data;
+        for (int y = 0; y < height; ++y) {
+            const uchar* q = img.scanLine(y);
+            for (int x = 0; x < width; ++x) {
+                *p++ += *q++;
+                *p++ += *q++;
+                *p++ += *q++;
+                *p++ += *q++;
+            }
+        }
+    }
+    unsigned* p = data;
+    QImage ret(size, QImage::Format_ARGB32_Premultiplied);
+    for (int y = 0; y < height; ++y) {
+        uchar* q = ret.scanLine(y);
+        for (int x = 0; x < width; ++x) {
+            unsigned a = p[3];
+            if (a > 255) {
+                *q++ = (uchar) ((*p++) * 255 / a);
+                *q++ = (uchar) ((*p++) * 255 / a);
+                *q++ = (uchar) ((*p++) * 255 / a);
+                *q++ = 255u;
+                ++p;
+            } else {
+                *q++ = (uchar) *p++;
+                *q++ = (uchar) *p++;
+                *q++ = (uchar) *p++;
+                *q++ = (uchar) *p++;
+            }
+        }
+    }
+    delete[] data;
+    return ret;
+}
+
 void Grapher::paintEvent(QPaintEvent*) {
     if (width() == 0) return;
     QPainter painter(this);
     painter.fillRect(0, 0, width(), height(), Qt::white);
     
+    QList<QImage> images;
+    foreach (Graph* graph, graphs) {
+        if (!graph) continue;
+        QImage img = graph->img();
+        if (img.isNull()) continue;
+        if (img.size() != size()) {
+            img = img.scaled(size());
+        }
+        images.append(img);
+    }
+    if (!images.empty()) painter.drawImage(0, 0, combine(images));
+    
     if (showAxes) {
-        painter.setPen(Qt::darkGray);
+        painter.setPen(QColor(0, 0, 0, 192));
         const qreal xScale = qreal(sceneRect.right() - sceneRect.left()) / width();
         const qreal yScale = qreal(sceneRect.bottom() - sceneRect.top()) / height();
         const qreal gridPixels = 50;
@@ -161,16 +217,11 @@ void Grapher::paintEvent(QPaintEvent*) {
             }
         }
         if (showGrid) {
-            painter.setPen(Qt::lightGray);
+            painter.setPen(QColor(0, 0, 0, 96));
             painter.drawPath(grid);
         }
-        painter.setPen(Qt::darkGray);
+        painter.setPen(QColor(0, 0, 0, 192));
         painter.drawPath(axes);
-    }
-    
-    foreach (Graph* graph, graphs) {
-        if (!graph) continue;
-        painter.drawImage(QRectF(QPointF(0, 0), size()), graph->img());
     }
 }
 

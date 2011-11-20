@@ -83,7 +83,8 @@ void InequalityGraph::restart() {
     Number xstep = (right - left) / width;
     Number ystep = (top - bottom) / height;
     QImage _img(width, height, QImage::Format_ARGB32_Premultiplied);
-    std::function<void(int)> function([this, left, top, xstep, ystep, width, height, &_img](int y) -> void {
+    QRgb fill = qRgba(color.red(), color.green(), color.blue(), 255);
+    std::function<void(int)> function([this, left, top, xstep, ystep, width, height, &_img, fill](int y) -> void {
         if (this->cancelled) return;
         VectorR px = reinterpret_cast<VectorR>(alloca(sizeof(Number) * width));
         {
@@ -103,7 +104,7 @@ void InequalityGraph::restart() {
         if (this->cancelled) return;
         QRgb* __restrict__ p = reinterpret_cast<QRgb*>(_img.scanLine(y));
         for (int x = 0; x < width; ++x) {
-            *p++ = qRgba(0, 0, 0, result[x] ? 255 : 0);
+            *p++ = result[x] ? fill : 0u;
         }
     });
     QtConcurrent::blockingMap(lines, function);
@@ -207,11 +208,9 @@ QImage ImplicitGraph::draw() {
     _img.fill(qRgba(0, 0, 0, 0));
     QPainter painter(&_img);
     if (!painter.isActive()) return QImage();
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(Qt::black);
     painter.scale(supersample, supersample);
     for (std::size_t i = 0; i < numPts; ++i) {
-        painter.fillRect(QRectF(QPointF(m_px[i], m_py[i]) * transform, QSizeF(0, 0)).adjusted(-0.5, -0.5, 0.5, 0.5), Qt::black);
+        painter.fillRect(QRectF(QPointF(m_px[i], m_py[i]) * transform, QSizeF(0, 0)).adjusted(-0.5, -0.5, 0.5, 0.5), color);
     }
     painter.end();
     return _img;
@@ -338,11 +337,9 @@ QImage ParametricGraph::restart() {
 
 void ParametricGraph::draw(Vector vx, Vector vy, size_t n) {
     QPainter painter(&_img);
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(Qt::black);
     painter.scale(supersample, supersample);
     for (std::size_t i = 0; i < n; ++i) {
-        painter.fillRect(QRectF(QPointF(vx[i], vy[i]) * transform, QSizeF(0, 0)).adjusted(-0.5, -0.5, 0.5, 0.5), Qt::black);
+        painter.fillRect(QRectF(QPointF(vx[i], vy[i]) * transform, QSizeF(0, 0)).adjusted(-0.5, -0.5, 0.5, 0.5), color);
     }
     painter.end();
 }
