@@ -15,8 +15,9 @@ int nextColor = 0;
 std::set<int> recoveredColors;
 
 QColor getColor(int c) {
-    const qreal factor = (3 - std::sqrt(5)) / 2;
-    return QColor::fromHsvF(fmod(factor * c, 1), 0.9, 0.8);
+    const static qreal factor = -(3 - std::sqrt(5)) / 2;
+    const qreal fc = factor * c;
+    return QColor::fromHsvF(fc - std::floor(fc), 0.9, 0.8);
 }
 
 GraphProperties::GraphProperties(QWidget* parent): QGroupBox(parent) {
