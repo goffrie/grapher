@@ -59,6 +59,9 @@ void MainWindow::newGraph() {
     scrollArea->takeWidget();
     scrollArea->setWidget(scrollAreaWidgetContents); // force size recalculation
     scrollAreaWidgetContents->setAutoFillBackground(false); // work around strangeness
+    scrollAreaWidgetContents->updateGeometry();
+    scrollArea->updateGeometry();
+    updateGeometry();
     // </hackiness>
     graph->addGraph(newGraph);
     connect(newGraph, SIGNAL(graphChanged(QObject*, Graph*)), graph, SLOT(changeGraph(QObject*, Graph*)));

@@ -27,3 +27,11 @@ void WindowSettings::onChanged() {
         emit rectChanged(QRectF(xmin, ymin, xmax - xmin, ymax - ymin));
     }
 }
+
+void WindowSettings::setShowAxes(bool _showAxes) {
+    emit showAxes(_showAxes);
+}
+
+void WindowSettings::setShowGrid(bool _showGrid) {
+    emit showGrid(_showGrid);
+}

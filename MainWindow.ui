@@ -25,7 +25,7 @@
    </property>
    <widget class="QScrollArea" name="scrollArea">
     <property name="sizePolicy">
-     <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
+     <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
       <horstretch>0</horstretch>
       <verstretch>0</verstretch>
      </sizepolicy>
@@ -33,8 +33,11 @@
     <property name="frameShadow">
      <enum>QFrame::Sunken</enum>
     </property>
+    <property name="verticalScrollBarPolicy">
+     <enum>Qt::ScrollBarAlwaysOn</enum>
+    </property>
     <property name="horizontalScrollBarPolicy">
-     <enum>Qt::ScrollBarAsNeeded</enum>
+     <enum>Qt::ScrollBarAlwaysOff</enum>
     </property>
     <property name="widgetResizable">
      <bool>true</bool>
@@ -44,12 +47,12 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>582</width>
+       <width>564</width>
        <height>574</height>
       </rect>
      </property>
      <property name="sizePolicy">
-      <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+      <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
@@ -85,6 +88,12 @@
     </widget>
    </widget>
    <widget class="QFrame" name="frame">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
     <property name="frameShape">
      <enum>QFrame::StyledPanel</enum>
     </property>
@@ -162,6 +171,8 @@
    <container>1</container>
    <slots>
     <signal>rectChanged(QRectF)</signal>
+    <signal>showAxes(bool)</signal>
+    <signal>showGrid(bool)</signal>
    </slots>
   </customwidget>
   <customwidget>
@@ -171,6 +182,8 @@
    <container>1</container>
    <slots>
     <slot>setWindow(QRectF)</slot>
+    <slot>setShowAxes(bool)</slot>
+    <slot>setShowGrid(bool)</slot>
    </slots>
   </customwidget>
  </customwidgets>
@@ -204,7 +217,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>324</x>
-     <y>71</y>
+     <y>63</y>
     </hint>
     <hint type="destinationlabel">
      <x>273</x>
@@ -223,8 +236,40 @@
      <y>33</y>
     </hint>
     <hint type="destinationlabel">
-     <x>506</x>
-     <y>113</y>
+     <x>747</x>
+     <y>140</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>windowSettings</sender>
+   <signal>showAxes(bool)</signal>
+   <receiver>graph</receiver>
+   <slot>setShowAxes(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>437</x>
+     <y>33</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>634</x>
+     <y>98</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>windowSettings</sender>
+   <signal>showGrid(bool)</signal>
+   <receiver>graph</receiver>
+   <slot>setShowGrid(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>539</x>
+     <y>35</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>617</x>
+     <y>68</y>
     </hint>
    </hints>
   </connection>

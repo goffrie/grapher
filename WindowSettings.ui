@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>328</width>
-    <height>84</height>
+    <height>109</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -116,6 +116,26 @@
      </property>
     </widget>
    </item>
+   <item row="2" column="2">
+    <widget class="QCheckBox" name="showAxes">
+     <property name="text">
+      <string>Show axes</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="4">
+    <widget class="QCheckBox" name="showGrid">
+     <property name="text">
+      <string>Show grid</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
   </layout>
  </widget>
  <tabstops>
@@ -133,8 +153,8 @@
    <slot>onChanged()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>119</x>
-     <y>61</y>
+     <x>142</x>
+     <y>43</y>
     </hint>
     <hint type="destinationlabel">
      <x>165</x>
@@ -149,8 +169,8 @@
    <slot>onChanged()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>58</y>
+     <x>223</x>
+     <y>40</y>
     </hint>
     <hint type="destinationlabel">
      <x>287</x>
@@ -165,8 +185,8 @@
    <slot>onChanged()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>87</x>
-     <y>81</y>
+     <x>110</x>
+     <y>63</y>
     </hint>
     <hint type="destinationlabel">
      <x>86</x>
@@ -181,17 +201,67 @@
    <slot>onChanged()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>364</x>
-     <y>82</y>
+     <x>311</x>
+     <y>64</y>
     </hint>
     <hint type="destinationlabel">
-     <x>361</x>
+     <x>327</x>
      <y>28</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showAxes</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>showGrid</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>118</x>
+     <y>90</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>248</x>
+     <y>95</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showAxes</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>WindowSettings</receiver>
+   <slot>setShowAxes(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>60</x>
+     <y>84</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>86</x>
+     <y>-6</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showGrid</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>WindowSettings</receiver>
+   <slot>setShowGrid(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>244</x>
+     <y>85</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>269</x>
+     <y>0</y>
     </hint>
    </hints>
   </connection>
  </connections>
  <slots>
   <slot>onChanged()</slot>
+  <slot>setShowAxes(bool)</slot>
+  <slot>setShowGrid(bool)</slot>
  </slots>
 </ui>

@@ -16,6 +16,8 @@ class Grapher : public QWidget {
     QTransform transform;
     bool needsRedraw;
     QTimer* redrawTimer;
+    bool showAxes;
+    bool showGrid;
 public:
     QMap<QObject*, Graph*> graphs;
 	Grapher(QWidget* parent = NULL);
@@ -25,6 +27,8 @@ public:
     void paintEvent(QPaintEvent* event);
     void resizeEvent(QResizeEvent* event);
 public slots:
+    void setShowAxes(bool showAxes);
+    void setShowGrid(bool showGrid);
     void idDeleted(QObject* id);
     void changeGraph(QObject* id, Graph* graph);
     void resized();
