@@ -53,8 +53,13 @@ MainWindow::MainWindow() {
 }
 
 void MainWindow::newGraph() {
-    GraphProperties* newGraph = new GraphProperties();
-    graphsLayout->addWidget(newGraph);
+    GraphProperties* newGraph = new GraphProperties(scrollAreaWidgetContents);
+    scrollAreaLayout->insertWidget(scrollAreaLayout->count()-2, newGraph);
+    // <hackiness>
+    scrollArea->takeWidget();
+    scrollArea->setWidget(scrollAreaWidgetContents); // force size recalculation
+    scrollAreaWidgetContents->setAutoFillBackground(false); // work around strangeness
+    // </hackiness>
     graph->addGraph(newGraph);
     connect(newGraph, SIGNAL(graphChanged(QObject*, Graph*)), graph, SLOT(changeGraph(QObject*, Graph*)));
 }

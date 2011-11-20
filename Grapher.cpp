@@ -41,6 +41,7 @@ void Grapher::resized() {
 
 void Grapher::paintEvent(QPaintEvent*) {
     QPainter painter(this);
+    painter.fillRect(0, 0, width(), height(), Qt::white);
     foreach (Graph* graph, graphs) {
         if (!graph) continue;
         painter.drawImage(0, 0, graph->img());
