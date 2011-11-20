@@ -24,7 +24,7 @@
       </sizepolicy>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="relation_tab">
       <attribute name="title">
@@ -146,6 +146,15 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>graphTypeSwitcher</tabstop>
+  <tabstop>rel_equation</tabstop>
+  <tabstop>par_x</tabstop>
+  <tabstop>par_y</tabstop>
+  <tabstop>par_tMin</tabstop>
+  <tabstop>par_tMax</tabstop>
+  <tabstop>deleteButton</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

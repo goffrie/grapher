@@ -118,6 +118,12 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>xMin</tabstop>
+  <tabstop>xMax</tabstop>
+  <tabstop>yMin</tabstop>
+  <tabstop>yMax</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
