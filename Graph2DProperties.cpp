@@ -8,6 +8,7 @@
 #include <exception>
 #include <set>
 #include <algorithm>
+#include <gsl/gsl_math.h>
 
 #include "dynamic_unique_cast.h"
 
