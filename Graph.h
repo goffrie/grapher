@@ -75,7 +75,7 @@ class ImplicitGraph : public IteratingGraph {
     Variable x, y;
     std::unique_ptr<Expression> eqn, _dx, _dy;
     std::unique_ptr<Expression> sub, dx, dy;
-    std::unique_ptr<Number[]> m_px, m_py;
+    UVector m_px, m_py;
     std::size_t numPts;
     
     QImage iterate();

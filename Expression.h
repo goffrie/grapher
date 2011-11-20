@@ -18,7 +18,8 @@
 
 typedef double Number;
 typedef Number* Vector;
-typedef Number* __restrict__ VectorR;
+typedef Number* __restrict VectorR;
+typedef std::unique_ptr<Number[]> UVector;
 
 struct Variable;
 namespace std {
@@ -137,8 +138,7 @@ struct Name : public UnaryOp { \
 #define FUNCTION_PRINTER(func) std::string toString(int prec = -1) const { return wrap(prec, Precedence::Func, std::string(#func "(") + a->toString(-1) + ")"); }
 #define SIMPLE_UNARY_FUNCTION(Name, func) UNARY_FUNCTION(Name, func, std::func, FUNCTION_PRINTER(func) )
 
-UNARY_FUNCTION(Neg, -, -, EPtr simplify() const; \
-    std::string toString(int prec = -1) const { return std::string("-") + a->toString(Precedence::Neg); })
+UNARY_FUNCTION(Neg, -, -, EPtr simplify() const; std::string toString(int prec = -1) const { return std::string("-") + a->toString(Precedence::Neg); })
 SIMPLE_UNARY_FUNCTION(Exp, exp)
 SIMPLE_UNARY_FUNCTION(Ln, log)
 SIMPLE_UNARY_FUNCTION(Sqrt, sqrt)

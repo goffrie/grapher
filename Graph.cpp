@@ -100,9 +100,10 @@ void InequalityGraph::restart() {
         Constant Y(top - y * ystep);
         s.insert(std::make_pair(this->x, &X));
         s.insert(std::make_pair(this->y, &Y));
-        std::unique_ptr<Number[]> result(this->rel->substitute(s)->evaluateVector(width));
+        UVector result(this->rel->substitute(s)->evaluateVector(width));
         if (this->cancelled) return;
-        QRgb* __restrict__ p = reinterpret_cast<QRgb*>(_img.scanLine(y));
+        typedef QRgb* __restrict QRgbR;
+        QRgbR p = reinterpret_cast<QRgb*>(_img.scanLine(y));
         for (int x = 0; x < width; ++x) {
             *p++ = result[x] ? fill : 0u;
         }
@@ -171,11 +172,11 @@ QImage ImplicitGraph::restart() {
         }
         if (cancelled) return QImage();
     }
-    std::unique_ptr<Number[]> gx(dx->evaluateVector(size));
+    UVector gx(dx->evaluateVector(size));
     if (cancelled) return QImage();
-    std::unique_ptr<Number[]> gy(dy->evaluateVector(size));
+    UVector gy(dy->evaluateVector(size));
     if (cancelled) return QImage();
-    std::unique_ptr<Number[]> p (sub->evaluateVector(size));
+    UVector p (sub->evaluateVector(size));
     if (cancelled) return QImage();
     for (std::size_t i = 0; i < size; ++i) {
         QPointF pt(m_px[i], m_py[i]);
@@ -229,13 +230,13 @@ void ImplicitGraph::resubstitute() {
 QImage ImplicitGraph::iterate() {
     if (cancelled) return QImage();
     std::size_t size = numPts;
-    std::unique_ptr<Number[]> p_gx (dx->evaluateVector(size));
+    UVector p_gx (dx->evaluateVector(size));
     if (cancelled) return QImage();
-    std::unique_ptr<Number[]> p_gy (dy->evaluateVector(size));
+    UVector p_gy (dy->evaluateVector(size));
     if (cancelled) return QImage();
-    std::unique_ptr<Number[]> p_p  (sub->evaluateVector(size));
+    UVector p_p  (sub->evaluateVector(size));
     if (cancelled) return QImage();
-    std::unique_ptr<Number[]> p_gx2(new Number[size]),
+    UVector p_gx2(new Number[size]),
                               p_gy2(new Number[size]),
                               p_gxy(new Number[size]);
     VectorR gx  = p_gx.get(),
@@ -346,10 +347,10 @@ void ParametricGraph::draw(Vector vx, Vector vy, size_t n) {
 
 QImage ParametricGraph::iterate() {
     if (cancelled) return QImage();
-    std::unique_ptr<Number[]> pt(new Number[numPts - 1]);
-    std::unique_ptr<Number[]> nt(new Number[numPts * 2 - 1]);
-    std::unique_ptr<Number[]> nx(new Number[numPts * 2 - 1]);
-    std::unique_ptr<Number[]> ny(new Number[numPts * 2 - 1]);
+    UVector pt(new Number[numPts - 1]);
+    UVector nt(new Number[numPts * 2 - 1]);
+    UVector nx(new Number[numPts * 2 - 1]);
+    UVector ny(new Number[numPts * 2 - 1]);
     std::size_t numT = 0, numNT = 0;
     Number xscale = transform.m11(), yscale = transform.m22();
     bool kept = false;
@@ -393,7 +394,7 @@ QImage ParametricGraph::iterate() {
         numPts = 0;
         return downsample(_img);
     }
-    std::unique_ptr<Number[]> vx, vy;
+    UVector vx, vy;
     {
         EPtr sx, sy;
         {
