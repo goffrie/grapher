@@ -24,7 +24,7 @@
       </sizepolicy>
      </property>
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="relation_tab">
       <attribute name="title">
@@ -228,11 +228,11 @@
    <slot>textChanged()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>199</x>
+     <x>191</x>
      <y>130</y>
     </hint>
     <hint type="destinationlabel">
-     <x>430</x>
+     <x>355</x>
      <y>7</y>
     </hint>
    </hints>
