@@ -89,6 +89,8 @@ struct Variable : public Expression {
     Variable(Id _id) : id(new Id(_id)) { }
 	Variable(const Variable& b) : id(b.id) { }
 	Variable(const std::shared_ptr<Id>& b) : id(b) { }
+    static std::unique_ptr<Variable> create() { return std::unique_ptr<Variable>(new Variable); }
+    static std::unique_ptr<Variable> create(const Variable& b) { return std::unique_ptr<Variable>(new Variable(b)); }
     Number evaluate() const { throw this; }
     Vector evaluateVector(std::size_t size) const { throw this; }
     EPtr substitute(const Subst& s) const {

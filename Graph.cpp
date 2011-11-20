@@ -300,7 +300,21 @@ void ParametricGraph::reset(std::unique_ptr<Expression> _x, std::unique_ptr<Expr
 }
 
 QImage ParametricGraph::restart() {
-    const std::size_t num = 16;
+    if (tMin == 0 && tMax == 0) {
+        Variable* vx = dynamic_cast<Variable*>(x.get());
+        Variable* vy = dynamic_cast<Variable*>(y.get());
+        QTransform ti = transform.inverted();
+        if (vx && *vx == t) {
+            tMin = (QPointF(0, 0) * ti).x();
+            tMax = (QPointF(width/supersample, 0) * ti).x();
+        } else if (vy && *vy == t) {
+            tMax = (QPointF(0, 0) * ti).y();
+            tMin = (QPointF(0, height/supersample) * ti).y();
+        }
+        Q_ASSERT(tMax > tMin);
+    }
+    
+    const std::size_t num = 1024;
     numPts = num;
 
     VectorR pt = new Number[num];

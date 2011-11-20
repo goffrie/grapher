@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <exception>
 #include <set>
+#include <algorithm>
 
 #include "dynamic_unique_cast.h"
 
@@ -46,6 +47,43 @@ struct InvalidInputException : public std::exception {
     }
 };
 
+ParametricGraph* parametrize(std::unique_ptr<Equation>& eqn, Variable x, Variable y) {
+    std::set<Variable> left, right;
+    eqn->a->variables(left);
+    eqn->b->variables(right);
+/*    std::vector<Variable> intersection;
+    std::set_intersection(left.begin(), left.end(), right.begin(), right.end(), std::back_insert_iterator(intersection));
+    if (intersection.size() != 0) {
+        // don't know how to deal with that
+        return NULL;
+    }*/
+    Variable* l = dynamic_cast<Variable*>(eqn->a.get());
+    Variable* r = dynamic_cast<Variable*>(eqn->b.get());
+    ParametricGraph* ret = NULL;
+    if (l != NULL && right.find(*l) == right.end()) {
+        if (*l == x) {
+            ret = new ParametricGraph;
+            ret->reset(std::move(eqn->b), Variable::create(y), y, 0, 0);
+            eqn.reset();
+        } else if (*l == y) {
+            ret = new ParametricGraph;
+            ret->reset(Variable::create(x), std::move(eqn->b), x, 0, 0);
+            eqn.reset();
+        }
+    } else if (r != NULL && left.find(*r) == left.end()) {
+        if (*r == x) {
+            ret = new ParametricGraph;
+            ret->reset(std::move(eqn->a), Variable::create(y), y, 0, 0);
+            eqn.reset();
+        } else if (*r == y) {
+            ret = new ParametricGraph;
+            ret->reset(Variable::create(x), std::move(eqn->a), x, 0, 0);
+            eqn.reset();
+        }
+    }
+    return ret;
+}
+
 void GraphProperties::textChanged() {
     try {
         std::unordered_map<std::string, Expression*> vars;
@@ -62,10 +100,16 @@ void GraphProperties::textChanged() {
             std::unique_ptr<Equation> eqn = dynamic_maybe_unique_cast<Equation>(thing);
             if (eqn) {
                 setErrorMsg(QString());
-                ImplicitGraph* graph = new ImplicitGraph;
-                graph->reset(std::move(eqn), x, y);
-                graph->setColor(getColor(color));
-                emit graphChanged(this, graph);
+                ParametricGraph* para = parametrize(eqn, x, y);
+                if (para) {
+                    para->setColor(getColor(color));
+                    emit graphChanged(this, para);
+                } else {
+                    ImplicitGraph* graph = new ImplicitGraph;
+                    graph->reset(std::move(eqn), x, y);
+                    graph->setColor(getColor(color));
+                    emit graphChanged(this, graph);
+                }
             } else {
                 auto ineq = dynamic_unique_cast<Inequality>(std::move(thing));
                 if (!ineq) {
