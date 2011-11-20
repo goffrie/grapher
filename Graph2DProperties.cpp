@@ -31,9 +31,9 @@ Graph2DProperties::Graph2DProperties(QWidget* parent): QGroupBox(parent) {
     } else {
         color = nextColor++;
     }
-    QPalette p = colorButton->palette();
-    p.setColor(QPalette::Button, getColor(color));
-    colorButton->setPalette(p);
+    QImage img(16, 16, QImage::Format_ARGB32_Premultiplied);
+    img.fill(getColor(color).rgb());
+    colorButton->setIcon(QIcon(QPixmap::fromImage(img)));
 }
 
 Graph2DProperties::~Graph2DProperties() {
