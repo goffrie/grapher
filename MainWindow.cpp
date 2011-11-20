@@ -63,7 +63,11 @@ void MainWindow::newGraph() {
     scrollArea->updateGeometry();
     updateGeometry();
     // </hackiness>
+    QMetaObject::invokeMethod(this, "scrollDown", Qt::QueuedConnection, Q_ARG(QWidget*, newGraph)); // super hackiness
     graph->addGraph(newGraph);
     connect(newGraph, SIGNAL(graphChanged(QObject*, Graph*)), graph, SLOT(changeGraph(QObject*, Graph*)));
 }
 
+void MainWindow::scrollDown(QWidget* w) {
+    scrollArea->ensureWidgetVisible(w);
+}
