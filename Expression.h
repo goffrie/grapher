@@ -8,6 +8,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <cstdint>
 
 #include <cmath>
 #include <gsl/gsl_sf_gamma.h>
@@ -16,10 +17,37 @@
 
 #include <QMetaType>
 
-typedef double Number;
-typedef Number* Vector;
-typedef Number* __restrict VectorR;
-typedef std::unique_ptr<Number[]> UVector;
+inline void* aligned_malloc(size_t size) {
+    void* pa = malloc(size + 15 + sizeof(void *));
+    if (!pa) return NULL;
+    void* ptr = (void*) ( ((uintptr_t)pa + sizeof(void *) + 15) & (~15) );
+    *((void **)ptr-1) = pa;
+    return ptr;
+}
+
+inline void aligned_free(void* ptr) {
+    if (ptr) free(*((void **)ptr-1));
+}
+
+typedef float Number;
+
+constexpr int SSE_VECTOR_SIZE = 4;
+
+#define VECTOR_ALLOC(num) ((Vector) aligned_malloc(((num + SSE_VECTOR_SIZE - 1) & (~(SSE_VECTOR_SIZE - 1)))*sizeof(Number)))
+#define VECTOR_FREE(ptr) aligned_free(ptr)
+
+typedef Number __attribute__((aligned(16))) * Vector;
+typedef Number __attribute__((aligned(16))) * __restrict VectorR;
+
+struct VectorDeleter {
+    void operator()(Vector ptr) const throw() {
+        VECTOR_FREE(ptr);
+    }
+};
+
+typedef std::unique_ptr<Number[], VectorDeleter> UVector;
+
+static_assert(sizeof(UVector) == sizeof(Vector), "UVector is not the right size!");
 
 struct Variable;
 namespace std {

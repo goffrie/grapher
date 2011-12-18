@@ -96,7 +96,7 @@ class ParametricGraph : public IteratingGraph {
     Variable t;
     Number tMin, tMax;
     std::unique_ptr<Expression> x, y;
-    std::unique_ptr<Number[]> m_pt, m_vx, m_vy;
+    UVector m_pt, m_vx, m_vy;
     std::size_t numPts;
     QImage _img;
     

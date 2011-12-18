@@ -144,8 +144,8 @@ void ImplicitGraph::reset(std::unique_ptr<Equation> rel, const Variable& _x, con
 
 QImage ImplicitGraph::restart() {
     QTransform ti = transform.inverted();
-    m_px.reset(new Number[width * height]);
-    m_py.reset(new Number[width * height]);
+    m_px.reset(VECTOR_ALLOC(width * height));
+    m_py.reset(VECTOR_ALLOC(width * height));
     resubstitute();
     numPts = 0;
     std::size_t size = 0;
@@ -236,9 +236,9 @@ QImage ImplicitGraph::iterate() {
     if (cancelled) return QImage();
     UVector p_p  (sub->evaluateVector(size));
     if (cancelled) return QImage();
-    UVector p_gx2(new Number[size]),
-                              p_gy2(new Number[size]),
-                              p_gxy(new Number[size]);
+    UVector p_gx2(VECTOR_ALLOC(size)),
+            p_gy2(VECTOR_ALLOC(size)),
+            p_gxy(VECTOR_ALLOC(size));
     VectorR gx  = p_gx.get(),
             gy  = p_gy.get(),
             p   = p_p.get(),
@@ -317,7 +317,7 @@ QImage ParametricGraph::restart() {
     const std::size_t num = 1024;
     numPts = num;
 
-    VectorR pt = new Number[num];
+    VectorR pt = VECTOR_ALLOC(num);
     EPtr sx, sy;
     {
         Expression::Subst s;
@@ -361,10 +361,10 @@ void ParametricGraph::draw(Vector vx, Vector vy, size_t n) {
 
 QImage ParametricGraph::iterate() {
     if (cancelled) return QImage();
-    UVector pt(new Number[numPts - 1]);
-    UVector nt(new Number[numPts * 2 - 1]);
-    UVector nx(new Number[numPts * 2 - 1]);
-    UVector ny(new Number[numPts * 2 - 1]);
+    UVector pt(VECTOR_ALLOC(numPts - 1));
+    UVector nt(VECTOR_ALLOC(numPts * 2 - 1));
+    UVector nx(VECTOR_ALLOC(numPts * 2 - 1));
+    UVector ny(VECTOR_ALLOC(numPts * 2 - 1));
     std::size_t numT = 0, numNT = 0;
     Number xscale = transform.m11(), yscale = transform.m22();
     bool kept = false;

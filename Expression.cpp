@@ -4,28 +4,9 @@
 
 #include "util.h"
 
-#define UNARY_FUNCTION(Name, func, sfunc) \
-Number Name::evaluate(Number _a) const { return sfunc(_a); } \
-Number Name::evaluate() const { return sfunc(a->evaluate()); } \
-Vector Name::evaluateVector(std::size_t size) const { \
-    VectorR _a = a->evaluateVector(size); \
-    for (std::size_t i = 0; i < size; ++i) _a[i] = sfunc(_a[i]); \
-    return _a; \
-}
-
-UNARY_FUNCTION(Neg, -, -)
-UNARY_FUNCTION(Exp, exp, std::exp)
-UNARY_FUNCTION(Ln, log, std::log)
-UNARY_FUNCTION(Sqrt, sqrt, std::sqrt)
-UNARY_FUNCTION(Sin, sin, std::sin)
-UNARY_FUNCTION(Cos, cos, std::cos)
-UNARY_FUNCTION(Tan, tan, std::tan)
-UNARY_FUNCTION(Asin, asin, std::asin)
-UNARY_FUNCTION(Acos, acos, std::acos)
-UNARY_FUNCTION(Atan, atan, std::atan)
-UNARY_FUNCTION(Gamma, gamma, gsl_sf_gamma)
-
-#undef UNARY_FUNCTION
+#include <xmmintrin.h>
+#define USE_SSE2
+#include "sse_mathfun.h"
 
 EPtr operator-(EPtr a) {
     return Neg::create(std::move(a));
@@ -43,18 +24,103 @@ EPtr operator/(EPtr a, EPtr b) {
     return Div::create(std::move(a), std::move(b));
 }
 
+#define VECTOR_LOOP for (std::size_t i = 0; i < size; i += SSE_VECTOR_SIZE)
+#define V(a) (*reinterpret_cast<v4sf*>(a+i))
+
 Vector Constant::evaluateVector(size_t size) const {
-    VectorR r = new Number[size];
-    Number _c = c;
-    for (std::size_t i = 0; i < size; ++i) r[i] = _c;
+    VectorR r = VECTOR_ALLOC(size);
+    const v4sf _c = {c, c, c, c};
+    VECTOR_LOOP V(r) = _c;
     return r;
 }
 
 Vector External::evaluateVector(size_t size) const {
-    VectorR r = new Number[size];
-//    for (std::size_t i = 0; i < size; ++i) r[i] = c[i];
+    VectorR r = VECTOR_ALLOC(size);
     std::memcpy(r, c, sizeof(Number)*size);
     return r;
+}
+
+#define UNARY_EVALUATE(Name, sfunc) \
+Number Name::evaluate(Number _a) const { return sfunc(_a); } \
+Number Name::evaluate() const { return sfunc(a->evaluate()); }
+#define UNARY_FUNCTION(Name, sfunc) \
+UNARY_EVALUATE(Name, sfunc) \
+Vector Name::evaluateVector(std::size_t size) const { \
+    VectorR _a = a->evaluateVector(size); \
+    for (std::size_t i = 0; i < size; ++i) _a[i] = sfunc(_a[i]); \
+    return _a; \
+}
+
+UNARY_EVALUATE(Neg, -)
+UNARY_EVALUATE(Exp, std::exp)
+UNARY_EVALUATE(Ln, std::log)
+UNARY_EVALUATE(Sqrt, std::sqrt)
+UNARY_EVALUATE(Sin, std::sin)
+UNARY_EVALUATE(Cos, std::cos)
+UNARY_EVALUATE(Tan, std::tan)
+UNARY_FUNCTION(Asin, std::asin)
+UNARY_FUNCTION(Acos, std::acos)
+UNARY_FUNCTION(Atan, std::atan)
+UNARY_FUNCTION(Gamma, gsl_sf_gamma)
+
+#undef UNARY_FUNCTION
+#undef UNARY_EVALUATE
+
+#define UNARY_VECTOR_EVALUATE(Name, vfunc) \
+Vector Name::evaluateVector(std::size_t size) const { \
+    VectorR _a = a->evaluateVector(size); \
+    VECTOR_LOOP V(_a) = vfunc(V(_a)); \
+    return _a; \
+}
+
+UNARY_VECTOR_EVALUATE(Neg, -)
+UNARY_VECTOR_EVALUATE(Sqrt, _mm_sqrt_ps)
+UNARY_VECTOR_EVALUATE(Ln, log_ps)
+UNARY_VECTOR_EVALUATE(Exp, exp_ps)
+UNARY_VECTOR_EVALUATE(Sin, sin_ps)
+UNARY_VECTOR_EVALUATE(Cos, cos_ps)
+inline v4sf tan_ps(v4sf x) {
+    v4sf sin, cos;
+    sincos_ps(x, &sin, &cos);
+    return sin / cos;
+}
+UNARY_VECTOR_EVALUATE(Tan, tan_ps)
+
+#undef UNARY_VECTOR_EVALUATE
+
+#define BINARY_VECTOR_EVALUATE(Name, op) \
+Vector Name::evaluateVector(std::size_t size) const { \
+    VectorR _a = a->evaluateVector(size); \
+    VectorR _b = b->evaluateVector(size); \
+    VECTOR_LOOP V(_a) op##= V(_b); \
+    VECTOR_FREE(_b); \
+    return _a; \
+}
+
+BINARY_VECTOR_EVALUATE(Add, +)
+BINARY_VECTOR_EVALUATE(Sub, -)
+BINARY_VECTOR_EVALUATE(Mul, *)
+BINARY_VECTOR_EVALUATE(Div, /)
+
+#undef BINARY_VECTOR_EVALUATE
+
+Vector Inequality::evaluateVector(size_t size) const {
+    VectorR _a = a->evaluateVector(size);
+    VectorR _b = b->evaluateVector(size);
+#define IOP(n, op) \
+        case n: \
+            for (std::size_t i = 0; i < size; ++i) _a[i] = _a[i] op _b[i]; \
+            break;
+//            DO_THE_LOOP(op)
+    switch (type) {
+        IOP(LT, <)
+        IOP(GT, >)
+        IOP(LTE, <=)
+        IOP(GTE, >=)
+    }
+#undef IOP
+    VECTOR_FREE(_b);
+    return _a;
 }
 
 inline Number powi(Number a, int b) {
@@ -78,18 +144,27 @@ Number PowInt::evaluate(Number _a) const {
 Vector PowInt::evaluateVector(std::size_t size) const {
     VectorR _a = a->evaluateVector(size);
     int _b = b;
-    VectorR ret = new Number[size];
-    for (std::size_t i = 0; i < size; ++i) ret[i] = 1.;
+    VectorR ret = VECTOR_ALLOC(size);
+    constexpr v4sf ones = {1.f, 1.f, 1.f, 1.f};
+    VECTOR_LOOP V(ret) = ones;
     bool neg = _b < 0;
     if (neg) _b = -_b;
     while (_b > 0) {
-        if (_b & 1) for (std::size_t i = 0; i < size; ++i) ret[i] *= _a[i];
+        if (_b & 1) VECTOR_LOOP V(ret) *= V(_a);
         _b >>= 1;
-        for (std::size_t i = 0; i < size; ++i) _a[i] *= _a[i];
+        VECTOR_LOOP V(_a) *= V(_a);
     }
-    if (neg) for (std::size_t i = 0; i < size; ++i) ret[i] = 1. / ret[i];
-    delete[] _a;
+    if (neg) VECTOR_LOOP V(ret) = ones / V(ret);
+    VECTOR_FREE(_a);
     return ret;
+}
+
+Vector Pow::evaluateVector(std::size_t size) const {
+    VectorR _a = a->evaluateVector(size);
+    VectorR _b = b->evaluateVector(size);
+    for (std::size_t i = 0; i < size; ++i) _a[i] = std::pow(_a[i], _b[i]);
+    VECTOR_FREE(_b);
+    return _a;
 }
 
 Number PolyGamma::evaluate() const {
@@ -103,64 +178,6 @@ Number PolyGamma::evaluate(Number _a) const {
 Vector PolyGamma::evaluateVector(std::size_t size) const {
     VectorR _a = a->evaluateVector(size);
     for (std::size_t i = 0; i < size; ++i) _a[i] = gsl_sf_psi_n(b, _a[i]);
-    return _a;
-}
-
-Vector Pow::evaluateVector(std::size_t size) const {
-    VectorR _a = a->evaluateVector(size);
-    VectorR _b = b->evaluateVector(size);
-    for (std::size_t i = 0; i < size; ++i) _a[i] = std::pow(_a[i], _b[i]);
-    delete[] _b;
-    return _a;
-}
-
-Vector Add::evaluateVector(std::size_t size) const {
-    VectorR _a = a->evaluateVector(size);
-    VectorR _b = b->evaluateVector(size);
-    for (std::size_t i = 0; i < size; ++i) _a[i] += _b[i];
-    delete[] _b;
-    return _a;
-}
-
-Vector Sub::evaluateVector(std::size_t size) const {
-    VectorR _a = a->evaluateVector(size);
-    VectorR _b = b->evaluateVector(size);
-    for (std::size_t i = 0; i < size; ++i) _a[i] -= _b[i];
-    delete[] _b;
-    return _a;
-}
-
-Vector Mul::evaluateVector(std::size_t size) const {
-    VectorR _a = a->evaluateVector(size);
-    VectorR _b = b->evaluateVector(size);
-    for (std::size_t i = 0; i < size; ++i) _a[i] *= _b[i];
-    delete[] _b;
-    return _a;
-}
-
-Vector Div::evaluateVector(std::size_t size) const {
-    VectorR _a = a->evaluateVector(size);
-    VectorR _b = b->evaluateVector(size);
-    for (std::size_t i = 0; i < size; ++i) _a[i] /= _b[i];
-    delete[] _b;
-    return _a;
-}
-
-Vector Inequality::evaluateVector(size_t size) const {
-    VectorR _a = a->evaluateVector(size);
-    VectorR _b = b->evaluateVector(size);
-#define IOP(n, op) \
-        case n: \
-            for (std::size_t i = 0; i < size; ++i) _a[i] = _a[i] op _b[i]; \
-            break;
-    switch (type) {
-        IOP(LT, <)
-        IOP(GT, >)
-        IOP(LTE, <=)
-        IOP(GTE, >=)
-    }
-#undef IOP
-    delete[] _b;
     return _a;
 }
 
