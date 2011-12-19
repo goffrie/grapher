@@ -13,6 +13,11 @@
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
 
+#include <xmmintrin.h>
+typedef __m128 v4sf;
+#define VECTOR_LOOP(s) for (std::size_t i = 0; i < s; i += SSE_VECTOR_SIZE)
+#define V(a) (*reinterpret_cast<v4sf*>(a+i))
+
 constexpr int supersample = 2;
 
 QImage downsample(QImage in) {
@@ -236,53 +241,22 @@ QImage ImplicitGraph::iterate() {
     if (cancelled) return QImage();
     UVector p_p  (sub->evaluateVector(size));
     if (cancelled) return QImage();
-    UVector p_gx2(VECTOR_ALLOC(size)),
-            p_gy2(VECTOR_ALLOC(size)),
-            p_gxy(VECTOR_ALLOC(size));
-    VectorR gx  = p_gx.get(),
-            gy  = p_gy.get(),
-            p   = p_p.get(),
-            gx2 = p_gx2.get(),
-            gy2 = p_gy2.get(),
-            gxy = p_gxy.get(),
-            px  = m_px.get(),
-            py  = m_py.get();
+    const VectorR
+        gx = p_gx.get(),
+        gy = p_gy.get(),
+        p  = p_p.get(),
+        px = m_px.get(),
+        py = m_py.get();
     // correcting factor = (gx, gy) * p / (gx * gx + gy * gy)
     // (gx2, gy2) = (gx^2, gy^2) in place
-    for (std::size_t i = 0; i < size; ++i) {
-        gx2[i] = gx[i] * gx[i];
-    }
-    if (cancelled) return QImage();
-    for (std::size_t i = 0; i < size; ++i) {
-        gy2[i] = gy[i] * gy[i];
-    }
-    if (cancelled) return QImage();
-    // gxy = gx^2+gy^2
-    for (std::size_t i = 0; i < size; ++i) {
-        gxy[i] = gx2[i] + gy2[i];
-    }
-    if (cancelled) return QImage();
-    // replace "p" with p/(gx^2 + gy^2)
-    for (std::size_t i = 0; i < size; ++i) {
-        p[i] = p[i] / gxy[i];
-    }
-    if (cancelled) return QImage();
-    // replace (gx, gy) with (gx, gy) * p / (gx^2 + gy^2)
-    for (std::size_t i = 0; i < size; ++i) {
-        gx[i] = gx[i] * p[i];
-    }
-    if (cancelled) return QImage();
-    for (std::size_t i = 0; i < size; ++i) {
-        gy[i] = gy[i] * p[i];
-    }
-    if (cancelled) return QImage();
-    // update points
-    for (std::size_t i = 0; i < size; ++i) {
-        px[i] = px[i] - gx[i];
-    }
-    if (cancelled) return QImage();
-    for (std::size_t i = 0; i < size; ++i) {
-        py[i] = py[i] - gy[i];
+    VECTOR_LOOP(size) {
+        // replace "p" with p/(gx^2 + gy^2)
+        v4sf _gx = V(gx), _gy = V(gy);
+        v4sf _p = V(p) / (_gx * _gx + _gy * _gy);
+        // delta-P = (gx, gy) * p / (gx^2 + gy^2)
+        // update points
+        V(px) -= _gx * _p;
+        V(py) -= _gy * _p;
     }
     if (cancelled) return QImage();
     return downsample(draw());
@@ -313,7 +287,7 @@ QImage ParametricGraph::restart() {
         }
         Q_ASSERT(tMax > tMin);
     }
-    
+
     const std::size_t num = 1024;
     numPts = num;
 

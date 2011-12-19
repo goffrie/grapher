@@ -7,6 +7,11 @@
 #include "Graph.h"
 #include "util.h"
 
+#include <mmintrin.h>
+#include <emmintrin.h>
+#include <xmmintrin.h>
+typedef __m128i v4si;
+
 Grapher::Grapher(QWidget* parent) : QWidget(parent), needsRedraw(false), redrawTimer(new QTimer(this)), showAxes(true), showGrid(true) {
     redrawTimer->setInterval(1000 / 15);
     connect(redrawTimer, SIGNAL(timeout()), this, SLOT(scheduledUpdate()));
@@ -89,39 +94,41 @@ void genTable() {
     }
 }
 
+const v4si zeroq = {0,0};
+
 QImage combine(QList<QImage> images) {
+    if (images.length() == 1) return images.first();
     genTable();
     QSize size = images[0].size();
     const int width = size.width();
     const int height = size.height();
-    uint16_t* data = new uint16_t[width * height * 4];
-    memset(data, 0, sizeof(uint16_t) * width * height * 4);
+    typedef v4si* dataPtr;
+    dataPtr data = (dataPtr) aligned_malloc(sizeof(v4si) * width * height);
+    memset(data, 0, sizeof(v4si) * width * height);
     foreach (const QImage& img, images) {
         Q_ASSERT(img.format() == QImage::Format_ARGB32_Premultiplied);
         Q_ASSERT(img.size() == size);
-        uint16_t* __restrict p = data;
+        dataPtr __restrict p = data;
         for (int y = 0; y < height; ++y) {
-            const uchar* __restrict q = img.scanLine(y);
-            for (int x = 0; x < width; ++x) {
-                for (int i = 0; i < 4; ++i) {
-                    *p++ += *q++;
-                }
+            const uint32_t* __restrict q = reinterpret_cast<const uint32_t*>(img.scanLine(y));
+            for (const dataPtr end = p + width; p != end; ++p, ++q) {
+                *p = _mm_add_epi32(*p, _mm_unpacklo_epi16(_mm_unpacklo_epi8(_mm_cvtsi32_si128(*q), zeroq), zeroq));
             }
         }
     }
-    uint16_t* __restrict p = data;
+    uint32_t* __restrict p = reinterpret_cast<uint32_t*>(data);
     QImage ret(size, QImage::Format_ARGB32_Premultiplied);
     for (int y = 0; y < height; ++y) {
         uchar* __restrict q = ret.scanLine(y);
         for (int x = 0; x < width; ++x) {
-            uint16_t a = p[3];
-            uint32_t multiplier = table[std::max(a, uint16_t(255u))];
-            for (int i = 0; i < 4; ++i) {
-                *q++ = (uchar) ((uint64_t(*p++ * 255u) * multiplier) >> 32);
-            }
+            const uint32_t multiplier = table[std::max(p[3], uint32_t(255u))];
+#define PROCESS_PIXEL *q++ = (uchar) ((uint64_t(*p++ * 255u) * multiplier) >> 32);
+            PROCESS_PIXEL PROCESS_PIXEL PROCESS_PIXEL
+#undef PROCESS_PIXEL
+            *q++ = (uchar) std::min(*p++, uint32_t(255u));
         }
     }
-    delete[] data;
+    aligned_free(data);
     return ret;
 }
 
@@ -129,7 +136,7 @@ void Grapher::paintEvent(QPaintEvent*) {
     if (width() == 0) return;
     QPainter painter(this);
     painter.fillRect(0, 0, width(), height(), Qt::white);
-    
+
     QList<QImage> images;
     foreach (Graph* graph, graphs) {
         if (!graph) continue;
@@ -141,7 +148,7 @@ void Grapher::paintEvent(QPaintEvent*) {
         images.append(img);
     }
     if (!images.empty()) painter.drawImage(0, 0, combine(images));
-    
+
     if (showAxes) {
         painter.setPen(QColor(0, 0, 0, 192));
         const qreal xScale = qreal(sceneRect.right() - sceneRect.left()) / width();

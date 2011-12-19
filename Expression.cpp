@@ -109,14 +109,13 @@ Vector Inequality::evaluateVector(size_t size) const {
     VectorR _b = b->evaluateVector(size);
 #define IOP(n, op) \
         case n: \
-            for (std::size_t i = 0; i < size; ++i) _a[i] = _a[i] op _b[i]; \
+            VECTOR_LOOP V(_a) = _mm_cmp##op##_ps(V(_a), V(_b)); \
             break;
-//            DO_THE_LOOP(op)
     switch (type) {
-        IOP(LT, <)
-        IOP(GT, >)
-        IOP(LTE, <=)
-        IOP(GTE, >=)
+        IOP(LT, lt)
+        IOP(GT, gt)
+        IOP(LTE, le)
+        IOP(GTE, ge)
     }
 #undef IOP
     VECTOR_FREE(_b);
