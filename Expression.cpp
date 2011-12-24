@@ -144,7 +144,7 @@ Vector PowInt::evaluateVector(std::size_t size) const {
     VectorR _a = a->evaluateVector(size);
     int _b = b;
     VectorR ret = VECTOR_ALLOC(size);
-    constexpr v4sf ones = {1.f, 1.f, 1.f, 1.f};
+    const v4sf ones = {1.f, 1.f, 1.f, 1.f};
     VECTOR_LOOP V(ret) = ones;
     bool neg = _b < 0;
     if (neg) _b = -_b;
