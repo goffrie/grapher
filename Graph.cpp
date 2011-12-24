@@ -288,7 +288,7 @@ QImage ParametricGraph::restart() {
         Q_ASSERT(tMax > tMin);
     }
 
-    const std::size_t num = 1024;
+    const std::size_t num = 2048;
     numPts = num;
 
     VectorR pt = VECTOR_ALLOC(num);
@@ -324,7 +324,7 @@ QImage ParametricGraph::restart() {
     return downsample(_img);
 }
 
-void ParametricGraph::draw(Vector vx, Vector vy, size_t n) {
+void ParametricGraph::draw(Vector vx, Vector vy, std::size_t n) {
     QPainter painter(&_img);
     painter.scale(supersample, supersample);
     for (std::size_t i = 0; i < n; ++i) {
@@ -334,29 +334,44 @@ void ParametricGraph::draw(Vector vx, Vector vy, size_t n) {
 }
 
 QImage ParametricGraph::iterate() {
+    static_assert(std::numeric_limits<Number>::is_iec559 == true, "Floating point type required!");
+    if (numPts == 0) return downsample(_img);
     if (cancelled) return QImage();
+    // new t-values to calculate
     UVector pt(VECTOR_ALLOC(numPts - 1));
+    // all the t-values, including the old ones.
+    // NaN means a gap in the graph
     UVector nt(VECTOR_ALLOC(numPts * 2 - 1));
+    // x and y values for nt
     UVector nx(VECTOR_ALLOC(numPts * 2 - 1));
     UVector ny(VECTOR_ALLOC(numPts * 2 - 1));
+    // sizes of arrays 't' and 'nt'
     std::size_t numT = 0, numNT = 0;
+    // transform stuff
     Number xscale = transform.m11(), yscale = transform.m22();
+    // whether or not the last point was copied into `nt'
     bool kept = false;
+    // start at i = 1; kept = false causes the first point to be copied
     for (std::size_t i = 1; i < numPts; ++i) {
-        Number dx = (m_vx[i] - m_vx[i-1]) * xscale, dy = (m_vy[i] - m_vy[i-1]) * yscale;
-        if (gsl_finite(m_pt[i]) && gsl_finite(m_pt[i-1]) && m_pt[i] != m_pt[i-1] && dx*dx + dy*dy > 0.25) {
+        if (m_pt[i] == m_pt[i-1]) continue;
+        // visual distance between the last point and this one
+        const Number dx = (m_vx[i] - m_vx[i-1]) * xscale, dy = (m_vy[i] - m_vy[i-1]) * yscale;
+        if (gsl_finite(m_pt[i]) && gsl_finite(m_pt[i-1]) && dx*dx + dy*dy > 0.25) {
             // deepen
             if (!kept) {
+                // keep endpoints, but don't duplicate them
                 nt[numNT] = m_pt[i-1];
                 nx[numNT] = m_vx[i-1];
                 ny[numNT] = m_vy[i-1];
                 ++numNT;
             }
+            // middle point, to be calculated
             nt[numNT] = pt[numT] = (m_pt[i] + m_pt[i-1]) / 2;
             nx[numNT] = ny[numNT] = GSL_NAN;
             ++numNT;
             ++numT;
-            
+
+            // keep the old point
             nt[numNT] = m_pt[i];
             nx[numNT] = m_vx[i];
             ny[numNT] = m_vy[i];
@@ -384,39 +399,24 @@ QImage ParametricGraph::iterate() {
     }
     UVector vx, vy;
     {
-        EPtr sx, sy;
-        {
-            Expression::Subst s;
-            External T(pt.get());
-            s.insert(std::make_pair(t, &T));
-            sx = x->substitute(s);
-            sy = y->substitute(s);
-        }
-        QFuture<Vector> fx = QtConcurrent::run(sx.get(), &Expression::evaluateVector, numT);
+        Expression::Subst s;
+        External T(pt.get());
+        s.insert(std::make_pair(t, &T));
+        const EPtr sy = y->substitute(s);
         QFuture<Vector> fy = QtConcurrent::run(sy.get(), &Expression::evaluateVector, numT);
-        fx.waitForFinished();
+        vx.reset(x->substitute(s)->evaluateVector(numT));
         fy.waitForFinished();
-        vx.reset(fx.result());
         vy.reset(fy.result());
     }
     if (cancelled) return QImage();
     QFuture<void> drawer = QtConcurrent::run(this, &ParametricGraph::draw, vx.get(), vy.get(), numT);
     for (std::size_t i = 0, j = 0; i < numT && j < numNT; ++j) {
-        if (gsl_isnan(nt[j])) continue;
-        if (nt[j] == pt[i]) {
-            if (!gsl_isnan(ny[j])) {
-                Q_ASSERT(!gsl_isnan(nx[j]));
-                // problems.
-                continue;
-            }
-            Q_ASSERT(gsl_isnan(nx[j]));
-            if (!gsl_finite(vx[i]) || !gsl_finite(vy[i])) {
-                continue;
-            }
-            nx[j] = vx[i];
-            ny[j] = vy[i];
-            ++i;
-        }
+        if (!(nt[j] == pt[i])) continue;
+        if (!gsl_isnan(ny[j])) continue; // whoops. something bad happened....
+        if (!gsl_finite(vx[i]) || !gsl_finite(vy[i])) continue; // the graph has a break
+        nx[j] = vx[i];
+        ny[j] = vy[i];
+        ++i;
     }
     numPts = numNT;
     m_vx = std::move(nx);
