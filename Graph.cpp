@@ -262,7 +262,7 @@ QImage ImplicitGraph::iterate() {
     return downsample(draw());
 }
 
-ParametricGraph::ParametricGraph(QObject* parent): IteratingGraph(parent) {
+ParametricGraph::ParametricGraph(QObject* parent): IteratingGraph(parent), pts(VECTOR_ALLOC(numPts)) {
 }
 
 void ParametricGraph::reset(std::unique_ptr<Expression> _x, std::unique_ptr<Expression> _y, const Variable& _t, Number _tMin, Number _tMax) {
@@ -271,6 +271,12 @@ void ParametricGraph::reset(std::unique_ptr<Expression> _x, std::unique_ptr<Expr
     t = _t;
     tMin = _tMin;
     tMax = _tMax;
+
+    Expression::Subst s;
+    External T(pts.get());
+    s.insert(std::make_pair(t, &T));
+    sx = x->substitute(s);
+    sy = y->substitute(s);
 }
 
 QImage ParametricGraph::restart() {
@@ -287,142 +293,32 @@ QImage ParametricGraph::restart() {
         }
         Q_ASSERT(tMax > tMin);
     }
+    distribution = std::uniform_real_distribution<Number>(tMin, tMax);
 
-    const std::size_t num = 2048;
-    numPts = num;
-
-    VectorR pt = VECTOR_ALLOC(num);
-    EPtr sx, sy;
-    {
-        Expression::Subst s;
-        External T(pt);
-        s.insert(std::make_pair(t, &T));
-        sx = x->substitute(s);
-        sy = y->substitute(s);
-    }
-    Number step = (tMax - tMin) / (num - 1);
-    Number n = tMin;
-    for (std::size_t i = 0; i < num; ++i) {
-        pt[i] = n;
-        n += step;
-    }
-    VectorR vx, vy;
-    {
-        QFuture<Vector> fx = QtConcurrent::run(sx.get(), &Expression::evaluateVector, num);
-        QFuture<Vector> fy = QtConcurrent::run(sy.get(), &Expression::evaluateVector, num);
-        fx.waitForFinished();
-        fy.waitForFinished();
-        vx = fx.result();
-        vy = fy.result();
-    }
     _img = QImage(width, height, QImage::Format_ARGB32_Premultiplied);
     _img.fill(qRgba(0, 0, 0, 0));
-    draw(vx, vy, num);
-    m_vx.reset(vx);
-    m_vy.reset(vy);
-    m_pt.reset(pt);
-    return downsample(_img);
+    return iterate();
 }
 
-void ParametricGraph::draw(Vector vx, Vector vy, std::size_t n) {
+void ParametricGraph::draw(Vector vx, Vector vy) {
     QPainter painter(&_img);
     painter.scale(supersample, supersample);
-    for (std::size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < numPts; ++i) {
         painter.fillRect(QRectF(QPointF(vx[i], vy[i]) * transform, QSizeF(0, 0)).adjusted(-0.5, -0.5, 0.5, 0.5), color);
     }
     painter.end();
 }
 
 QImage ParametricGraph::iterate() {
-    static_assert(std::numeric_limits<Number>::is_iec559 == true, "Floating point type required!");
-    if (numPts == 0) return downsample(_img);
     if (cancelled) return QImage();
-    // new t-values to calculate
-    UVector pt(VECTOR_ALLOC(numPts - 1));
-    // all the t-values, including the old ones.
-    // NaN means a gap in the graph
-    UVector nt(VECTOR_ALLOC(numPts * 2 - 1));
-    // x and y values for nt
-    UVector nx(VECTOR_ALLOC(numPts * 2 - 1));
-    UVector ny(VECTOR_ALLOC(numPts * 2 - 1));
-    // sizes of arrays 't' and 'nt'
-    std::size_t numT = 0, numNT = 0;
-    // transform stuff
-    Number xscale = transform.m11(), yscale = transform.m22();
-    // whether or not the last point was copied into `nt'
-    bool kept = false;
-    // start at i = 1; kept = false causes the first point to be copied
-    for (std::size_t i = 1; i < numPts; ++i) {
-        if (m_pt[i] == m_pt[i-1]) continue;
-        // visual distance between the last point and this one
-        const Number dx = (m_vx[i] - m_vx[i-1]) * xscale, dy = (m_vy[i] - m_vy[i-1]) * yscale;
-        if (gsl_finite(m_pt[i]) && gsl_finite(m_pt[i-1]) && dx*dx + dy*dy > 0.25) {
-            // deepen
-            if (!kept) {
-                // keep endpoints, but don't duplicate them
-                nt[numNT] = m_pt[i-1];
-                nx[numNT] = m_vx[i-1];
-                ny[numNT] = m_vy[i-1];
-                ++numNT;
-            }
-            // middle point, to be calculated
-            nt[numNT] = pt[numT] = (m_pt[i] + m_pt[i-1]) / 2;
-            nx[numNT] = ny[numNT] = GSL_NAN;
-            ++numNT;
-            ++numT;
-
-            // keep the old point
-            nt[numNT] = m_pt[i];
-            nx[numNT] = m_vx[i];
-            ny[numNT] = m_vy[i];
-            ++numNT;
-            kept = true;
-        } else {
-            if (kept) {
-                // fill in gaps with NaN to reduce wasted calculations
-                nt[numNT] = GSL_NAN;
-                nx[numNT] = ny[numNT] = GSL_NAN;
-                ++numNT;
-            }
-            kept = false;
-        }
-    }
+    for (int i = 0; i < numPts; ++i) pts[i] = distribution(engine);
     if (cancelled) return QImage();
-    qDebug() << "deepened by" << numT << "old" << numPts << "new" << numNT;
-    if (numT == 0) {
-        // done.
-        m_pt.reset();
-        m_vx.reset();
-        m_vy.reset();
-        numPts = 0;
-        return downsample(_img);
-    }
-    UVector vx, vy;
-    {
-        Expression::Subst s;
-        External T(pt.get());
-        s.insert(std::make_pair(t, &T));
-        const EPtr sy = y->substitute(s);
-        QFuture<Vector> fy = QtConcurrent::run(sy.get(), &Expression::evaluateVector, numT);
-        vx.reset(x->substitute(s)->evaluateVector(numT));
-        fy.waitForFinished();
-        vy.reset(fy.result());
-    }
+    QFuture<Vector> fy = QtConcurrent::run(sy.get(), &Expression::evaluateVector, (std::size_t)numPts);
+    UVector vx(sx->evaluateVector(numPts));
+    fy.waitForFinished();
+    UVector vy(fy.result());
     if (cancelled) return QImage();
-    QFuture<void> drawer = QtConcurrent::run(this, &ParametricGraph::draw, vx.get(), vy.get(), numT);
-    for (std::size_t i = 0, j = 0; i < numT && j < numNT; ++j) {
-        if (!(nt[j] == pt[i])) continue;
-        if (!gsl_isnan(ny[j])) continue; // whoops. something bad happened....
-        if (!gsl_finite(vx[i]) || !gsl_finite(vy[i])) continue; // the graph has a break
-        nx[j] = vx[i];
-        ny[j] = vy[i];
-        ++i;
-    }
-    numPts = numNT;
-    m_vx = std::move(nx);
-    m_vy = std::move(ny);
-    m_pt = std::move(nt);
-    drawer.waitForFinished();
+    draw(vx.get(), vy.get());
     if (cancelled) return QImage();
     return downsample(_img);
 }
@@ -433,9 +329,7 @@ void ParametricGraph::iterateAgain() {
     QImage newImg = future.result();
     if (newImg.isNull()) return;
     m_img = newImg;
-    if (numPts != 0) {
-        future = QtConcurrent::run(this, &ParametricGraph::iterate);
-        watcher->setFuture(future);
-    }
+    future = QtConcurrent::run(this, &ParametricGraph::iterate);
+    watcher->setFuture(future);
     emit updated();
 }

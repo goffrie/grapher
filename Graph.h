@@ -9,6 +9,7 @@
 #include <QMutex>
 #include <QTransform>
 #include <memory>
+#include <random>
 
 #include "Expression.h"
 
@@ -95,12 +96,14 @@ class ParametricGraph : public IteratingGraph {
     
     Variable t;
     Number tMin, tMax;
-    std::unique_ptr<Expression> x, y;
-    UVector m_pt, m_vx, m_vy;
-    std::size_t numPts;
+    std::unique_ptr<Expression> x, y, sx, sy;
+    std::uniform_real_distribution<Number> distribution;
+    std::mt19937 engine;
+    UVector pts;
+    constexpr static std::size_t numPts = 16384;
     QImage _img;
-    
-    void draw(Vector vx, Vector vy, std::size_t n);
+
+    void draw(Vector vx, Vector vy);
     QImage iterate();
 public:
     ParametricGraph(QObject* parent = 0);
