@@ -115,7 +115,7 @@ if (func == #name) { \
                 EPtr z(pop_expression());
                 std::unique_ptr<Constant> c = dynamic_unique_cast<Constant>(pop_expression());
                 if (!c || !isIntegral(c->c)) throw Parser::ExpressionTypeException();
-                output.push_back(PolyGamma::create(std::move(z), rnd(c->c)));
+                output.push_back(PolyGamma::create(std::move(z), qRound(c->c)));
             } else {
                 throw Parser::UnknownFunctionException(func);
             }
@@ -135,7 +135,7 @@ if (func == #name) { \
                     case '^': {
                         Constant* bc = dynamic_cast<Constant*>(b.get());
                         if (bc != NULL && isIntegral(bc->c)) {
-                            output.push_back(PowInt::create(std::move(a), rnd(bc->c)));
+                            output.push_back(PowInt::create(std::move(a), qRound(bc->c)));
                         } else {
                             output.push_back(Pow::create(std::move(a), std::move(b)));
                         }

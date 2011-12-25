@@ -7,10 +7,6 @@ inline bool isIntegral(Number a) {
     return (a < b + epsilon) && (b < a + epsilon);
 }
 
-inline constexpr int rnd(Number a) {
-    return static_cast<int>(a + 0.5);
-}
-
 inline double rnd_d(double num) {
     return (num >= 0.0) ? floor(num + 0.5) : ceil(num - 0.5);
 }

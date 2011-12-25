@@ -410,7 +410,7 @@ EPtr Pow::simplify() const {
         return std::move(as);
     }
     if (bc && isIntegral(bcc)) {
-        return PowInt::create(std::move(as), rnd(bcc))->simplify();
+        return PowInt::create(std::move(as), qRound(bcc))->simplify();
     }
     return Pow::create(std::move(as), std::move(bs));
 }

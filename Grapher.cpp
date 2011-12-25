@@ -70,7 +70,7 @@ inline qreal roundOneDigit(qreal n) {
     const qreal l = std::log10(n);
     const qreal fl = std::floor(l);
     long il = (long)fl;
-    int digit = rnd(std::pow(10, l - fl));
+    int digit = qRound(std::pow(10, l - fl));
     if (digit > 9) {
         digit /= 10;
         ++il;
