@@ -153,7 +153,7 @@ void Grapher::paintEvent(QPaintEvent*) {
         painter.setPen(QColor(0, 0, 0, 192));
         const qreal xScale = qreal(sceneRect.right() - sceneRect.left()) / width();
         const qreal yScale = qreal(sceneRect.bottom() - sceneRect.top()) / height();
-        const qreal gridPixels = 50;
+        const qreal gridPixels = 80;
         const QPointF origin = QPointF(0, 0) * transform;
         QPainterPath grid;
         QPainterPath axes;
