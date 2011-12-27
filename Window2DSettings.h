@@ -1,13 +1,13 @@
 #ifndef _WINDOWSETTINGS_H_
 #define _WINDOWSETTINGS_H_
 
-#include "ui_WindowSettings.h"
+#include "ui_Window2DSettings.h"
 #include <QGroupBox>
 
-class WindowSettings : public QGroupBox, private Ui_WindowSettings {
+class Window2DSettings : public QGroupBox, private Ui_Window2DSettings {
     Q_OBJECT
 public:
-    WindowSettings(QWidget* parent = 0);
+    Window2DSettings(QWidget* parent = 0);
 signals:
     void rectChanged(QRectF rect);
     void showAxes(bool showAxes);

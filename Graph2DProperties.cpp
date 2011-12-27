@@ -1,8 +1,8 @@
-#include "GraphProperties.h"
+#include "Graph2DProperties.h"
 
 #include "Parser.h"
 #include "Expression.h"
-#include "Graph.h"
+#include "Graph2D.h"
 
 #include <QDebug>
 #include <exception>
@@ -20,7 +20,7 @@ QColor getColor(int c) {
     return QColor::fromHsvF(fc - std::floor(fc), 0.9, 0.8);
 }
 
-GraphProperties::GraphProperties(QWidget* parent): QGroupBox(parent) {
+Graph2DProperties::Graph2DProperties(QWidget* parent): QGroupBox(parent) {
     setupUi(this);
     par_tMin->setValidator(new QDoubleValidator());
     par_tMax->setValidator(new QDoubleValidator());
@@ -35,7 +35,7 @@ GraphProperties::GraphProperties(QWidget* parent): QGroupBox(parent) {
     colorButton->setPalette(p);
 }
 
-GraphProperties::~GraphProperties() {
+Graph2DProperties::~Graph2DProperties() {
     recoveredColors.insert(color);
 }
 
@@ -85,7 +85,7 @@ ParametricGraph* parametrize(std::unique_ptr<Equation>& eqn, Variable x, Variabl
     return ret;
 }
 
-void GraphProperties::textChanged() {
+void Graph2DProperties::textChanged() {
     try {
         std::unordered_map<std::string, Expression*> vars;
         Constant _pi(M_PI);
@@ -150,10 +150,10 @@ void GraphProperties::textChanged() {
     }
 }
 
-void GraphProperties::deletePressed() {
+void Graph2DProperties::deletePressed() {
     deleteLater();
 }
 
-void GraphProperties::setErrorMsg(QString str) {
+void Graph2DProperties::setErrorMsg(QString str) {
     errorMsg->setText(str);
 }

@@ -1,8 +1,8 @@
-#include "WindowSettings.h"
+#include "Window2DSettings.h"
 
 #include <QDebug>
 
-WindowSettings::WindowSettings(QWidget* parent): QGroupBox(parent) {
+Window2DSettings::Window2DSettings(QWidget* parent): QGroupBox(parent) {
     setupUi(this);
     xMin->setValidator(new QDoubleValidator());
     xMax->setValidator(new QDoubleValidator());
@@ -10,7 +10,7 @@ WindowSettings::WindowSettings(QWidget* parent): QGroupBox(parent) {
     yMax->setValidator(new QDoubleValidator());
 }
 
-void WindowSettings::onChanged() {
+void Window2DSettings::onChanged() {
     qreal xmin = xMin->text().toDouble();
     qreal xmax = xMax->text().toDouble();
     qreal ymin = yMin->text().toDouble();
@@ -28,10 +28,10 @@ void WindowSettings::onChanged() {
     }
 }
 
-void WindowSettings::setShowAxes(bool _showAxes) {
+void Window2DSettings::setShowAxes(bool _showAxes) {
     emit showAxes(_showAxes);
 }
 
-void WindowSettings::setShowGrid(bool _showGrid) {
+void Window2DSettings::setShowGrid(bool _showGrid) {
     emit showGrid(_showGrid);
 }

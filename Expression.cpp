@@ -8,24 +8,10 @@
 #define USE_SSE2
 #include "sse_mathfun.h"
 
-EPtr operator-(EPtr a) {
-    return Neg::create(std::move(a));
-}
-EPtr operator+(EPtr a, EPtr b) {
-    return Add::create(std::move(a), std::move(b));
-}
-EPtr operator-(EPtr a, EPtr b) {
-    return Sub::create(std::move(a), std::move(b));
-}
-EPtr operator*(EPtr a, EPtr b) {
-    return Mul::create(std::move(a), std::move(b));
-}
-EPtr operator/(EPtr a, EPtr b) {
-    return Div::create(std::move(a), std::move(b));
-}
-
 #define VECTOR_LOOP for (std::size_t i = 0; i < size; i += SSE_VECTOR_SIZE)
 #define V(a) (*reinterpret_cast<v4sf*>(a+i))
+
+#include <iostream>
 
 Vector Constant::evaluateVector(size_t size) const {
     VectorR r = VECTOR_ALLOC(size);
@@ -34,11 +20,48 @@ Vector Constant::evaluateVector(size_t size) const {
     return r;
 }
 
-Vector External::evaluateVector(size_t size) const {
+Vector ExternalConstant::evaluateVector(size_t size) const {
+    VectorR r = VECTOR_ALLOC(size);
+    const v4sf _c = {*c, *c, *c, *c};
+    VECTOR_LOOP V(r) = _c;
+    return r;
+}
+
+Vector ExternalVector::evaluateVector(size_t size) const {
     VectorR r = VECTOR_ALLOC(size);
     std::memcpy(r, c, sizeof(Number)*size);
     return r;
 }
+
+Number Variable::evaluate() const {
+    switch (id->type) {
+        case Id::Constant:
+        case Id::Vector:
+            return *id->p;
+        default:
+            throw this;
+    }
+}
+
+Vector Variable::evaluateVector(std::size_t size) const {
+    switch (id->type) {
+        case Id::Constant: {
+            VectorR r = VECTOR_ALLOC(size);
+            const float c = *id->p;
+            const v4sf _c = {c, c, c, c};
+            VECTOR_LOOP V(r) = _c;
+            return r;
+        }
+        case Id::Vector: {
+            VectorR r = VECTOR_ALLOC(size);
+            std::memcpy(r, id->p, size*sizeof(Number));
+            return r;
+        }
+        default:
+            throw this;
+    }
+}
+
 
 #define UNARY_EVALUATE(Name, sfunc) \
 Number Name::evaluate(Number _a) const { return sfunc(_a); } \
@@ -311,7 +334,7 @@ EPtr Mul::simplify() const {
         return (-(std::move(an->a) * std::move(bs)))->simplify();
     }
     // a * (-b) = -(a * b)
-    if (an) {
+    if (bn) {
         return (-(std::move(as) * std::move(bn->a)))->simplify();
     }
     Div* ad = dynamic_cast<Div*>(as.get());

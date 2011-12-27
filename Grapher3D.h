@@ -1,38 +1,40 @@
-#ifndef _GRAPHER_H_
-#define _GRAPHER_H_
+#ifndef _GRAPHER3D_H_
+#define _GRAPHER3D_H_
 
 #include <QWidget>
 #include <QMap>
+
 #include "Expression.h"
+#include "Render3D.h"
 
 class QPaintEvent;
 class QResizeEvent;
-class Graph;
+class Graph3D;
 class QTimer;
 
-class Grapher : public QWidget {
-	Q_OBJECT
-    QRectF sceneRect;
-    QTransform transform;
+class Grapher3D : public QWidget {
+    Q_OBJECT
+    Vector3D boxa, boxb, light;
+    Transform3D transform;
+
     bool needsRedraw;
     QTimer* redrawTimer;
     bool showAxes;
-    bool showGrid;
 public:
-    QMap<QObject*, Graph*> graphs;
-	Grapher(QWidget* parent = NULL);
-    ~Grapher();
+    QMap<QObject*, Graph3D*> graphs;
+    Grapher3D(QWidget* parent = NULL);
+    ~Grapher3D();
     void deleteGraph(QObject* id);
-	void addGraph(QObject* id);
+    void addGraph(QObject* id);
     void paintEvent(QPaintEvent* event);
     void resizeEvent(QResizeEvent* event);
 public slots:
     void setShowAxes(bool showAxes);
-    void setShowGrid(bool showGrid);
     void idDeleted(QObject* id);
-    void changeGraph(QObject* id, Graph* graph);
+    void changeGraph(QObject* id, Graph3D* graph);
     void resized();
-    void setWindow(QRectF window);
+    void setWindow(Vector3D boxa, Vector3D boxb);
+    void setLightSource(Vector3D light);
     void scheduleUpdate(bool now = false);
     void scheduledUpdate();
 };

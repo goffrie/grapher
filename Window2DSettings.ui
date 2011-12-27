@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>WindowSettings</class>
- <widget class="QGroupBox" name="WindowSettings">
+ <class>Window2DSettings</class>
+ <widget class="QGroupBox" name="Window2DSettings">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -149,7 +149,7 @@
   <connection>
    <sender>xMin</sender>
    <signal>editingFinished()</signal>
-   <receiver>WindowSettings</receiver>
+   <receiver>Window2DSettings</receiver>
    <slot>onChanged()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -165,7 +165,7 @@
   <connection>
    <sender>xMax</sender>
    <signal>editingFinished()</signal>
-   <receiver>WindowSettings</receiver>
+   <receiver>Window2DSettings</receiver>
    <slot>onChanged()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -181,7 +181,7 @@
   <connection>
    <sender>yMin</sender>
    <signal>editingFinished()</signal>
-   <receiver>WindowSettings</receiver>
+   <receiver>Window2DSettings</receiver>
    <slot>onChanged()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -197,7 +197,7 @@
   <connection>
    <sender>yMax</sender>
    <signal>editingFinished()</signal>
-   <receiver>WindowSettings</receiver>
+   <receiver>Window2DSettings</receiver>
    <slot>onChanged()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -229,7 +229,7 @@
   <connection>
    <sender>showAxes</sender>
    <signal>toggled(bool)</signal>
-   <receiver>WindowSettings</receiver>
+   <receiver>Window2DSettings</receiver>
    <slot>setShowAxes(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -245,7 +245,7 @@
   <connection>
    <sender>showGrid</sender>
    <signal>toggled(bool)</signal>
-   <receiver>WindowSettings</receiver>
+   <receiver>Window2DSettings</receiver>
    <slot>setShowGrid(bool)</slot>
    <hints>
     <hint type="sourcelabel">

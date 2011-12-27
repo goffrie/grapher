@@ -98,20 +98,41 @@ struct Constant : public Expression {
     Constant* copy() const { return new Constant(c); }
     std::string toString(int prec = -1) const { return boost::lexical_cast<std::string>(c); }
 };
-struct External : public Expression {
-    Vector c;
-    External(Vector _c) : c(_c) { }
-    static std::unique_ptr<External> create(Vector _c) { return std::unique_ptr<External>(new External(_c)); }
+struct ExternalConstant : public Expression {
+    Number* c;
+    ExternalConstant(Number* _c) : c(_c) { }
+    static std::unique_ptr<ExternalConstant> create(Number* _c) { return std::unique_ptr<ExternalConstant>(new ExternalConstant(_c)); }
     Number evaluate() const { return *c; }
     Vector evaluateVector(std::size_t size) const;
     EPtr substitute(const Subst&) const { return EPtr(copy()); }
     EPtr derivative(const Variable&) const { return EPtr(new Constant(0)); }
-	void variables(std::set<Variable>&) const { }
-    External* copy() const { return new External(c); }
-    std::string toString(int prec = -1) const { return std::string("External(") + boost::lexical_cast<std::string>(c) + ")"; }
+    void variables(std::set<Variable>&) const { }
+    ExternalConstant* copy() const { return new ExternalConstant(c); }
+    std::string toString(int prec = -1) const { return std::string("ExternalC(") + boost::lexical_cast<std::string>(c) + ")"; }
+};
+struct ExternalVector : public Expression {
+    Vector c;
+    ExternalVector(Vector _c) : c(_c) { }
+    static std::unique_ptr<ExternalVector> create(Vector _c) { return std::unique_ptr<ExternalVector>(new ExternalVector(_c)); }
+    Number evaluate() const { return *c; }
+    Vector evaluateVector(std::size_t size) const;
+    EPtr substitute(const Subst&) const { return EPtr(copy()); }
+    EPtr derivative(const Variable&) const { return EPtr(new Constant(0)); }
+    void variables(std::set<Variable>&) const { }
+    ExternalVector* copy() const { return new ExternalVector(c); }
+    std::string toString(int prec = -1) const { return std::string("ExternalV(") + boost::lexical_cast<std::string>(c) + ")"; }
 };
 struct Variable : public Expression {
-	typedef std::string Id;
+	struct Id {
+        std::string s;
+        enum Type { None, Constant, Vector } type;
+        ::Vector p;
+        Id() : type(None) { }
+        Id(const char* _s) : s(_s), type(None) { }
+        Id(std::string _s) : s(_s), type(None) { }
+        Id(std::string _s, Type t, ::Vector _p = NULL) : s(_s), type(t), p(_p) { }
+        operator std::string() const { return s; }
+    };
 	std::shared_ptr<Id> id;
     Variable() : id(new Id) { }
     Variable(Id _id) : id(new Id(_id)) { }
@@ -119,8 +140,8 @@ struct Variable : public Expression {
 	Variable(const std::shared_ptr<Id>& b) : id(b) { }
     static std::unique_ptr<Variable> create() { return std::unique_ptr<Variable>(new Variable); }
     static std::unique_ptr<Variable> create(const Variable& b) { return std::unique_ptr<Variable>(new Variable(b)); }
-    Number evaluate() const { throw this; }
-    Vector evaluateVector(std::size_t size) const { throw this; }
+    Number evaluate() const;
+    Vector evaluateVector(std::size_t size) const;
     EPtr substitute(const Subst& s) const {
         Subst::const_iterator p = s.find(*this);
         if (p == s.end()) return EPtr(copy());
@@ -350,5 +371,21 @@ struct Function : public Thing {
 	}
 };
 */
+
+inline EPtr operator-(EPtr a) {
+    return Neg::create(std::move(a));
+}
+inline EPtr operator+(EPtr a, EPtr b) {
+    return Add::create(std::move(a), std::move(b));
+}
+inline EPtr operator-(EPtr a, EPtr b) {
+    return Sub::create(std::move(a), std::move(b));
+}
+inline EPtr operator*(EPtr a, EPtr b) {
+    return Mul::create(std::move(a), std::move(b));
+}
+inline EPtr operator/(EPtr a, EPtr b) {
+    return Div::create(std::move(a), std::move(b));
+}
 
 #endif

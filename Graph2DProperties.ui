@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>GraphProperties</class>
- <widget class="QGroupBox" name="GraphProperties">
+ <class>Graph2DProperties</class>
+ <widget class="QGroupBox" name="Graph2DProperties">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>356</width>
+    <height>195</height>
+   </rect>
+  </property>
   <property name="sizePolicy">
    <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
     <horstretch>0</horstretch>
@@ -46,7 +54,7 @@
        </item>
       </layout>
       <zorder>rel_equation</zorder>
-      <zorder></zorder>
+      <zorder>label_equation</zorder>
      </widget>
      <widget class="QWidget" name="parametric_tab">
       <attribute name="title">
@@ -170,7 +178,7 @@
   <connection>
    <sender>deleteButton</sender>
    <signal>clicked()</signal>
-   <receiver>GraphProperties</receiver>
+   <receiver>Graph2DProperties</receiver>
    <slot>deletePressed()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -186,7 +194,7 @@
   <connection>
    <sender>rel_equation</sender>
    <signal>editingFinished()</signal>
-   <receiver>GraphProperties</receiver>
+   <receiver>Graph2DProperties</receiver>
    <slot>textChanged()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -202,7 +210,7 @@
   <connection>
    <sender>par_x</sender>
    <signal>editingFinished()</signal>
-   <receiver>GraphProperties</receiver>
+   <receiver>Graph2DProperties</receiver>
    <slot>textChanged()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -218,7 +226,7 @@
   <connection>
    <sender>par_y</sender>
    <signal>editingFinished()</signal>
-   <receiver>GraphProperties</receiver>
+   <receiver>Graph2DProperties</receiver>
    <slot>textChanged()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -234,7 +242,7 @@
   <connection>
    <sender>par_tMin</sender>
    <signal>editingFinished()</signal>
-   <receiver>GraphProperties</receiver>
+   <receiver>Graph2DProperties</receiver>
    <slot>textChanged()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -250,7 +258,7 @@
   <connection>
    <sender>par_tMax</sender>
    <signal>editingFinished()</signal>
-   <receiver>GraphProperties</receiver>
+   <receiver>Graph2DProperties</receiver>
    <slot>textChanged()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -266,7 +274,7 @@
   <connection>
    <sender>graphTypeSwitcher</sender>
    <signal>currentChanged(int)</signal>
-   <receiver>GraphProperties</receiver>
+   <receiver>Graph2DProperties</receiver>
    <slot>textChanged()</slot>
    <hints>
     <hint type="sourcelabel">

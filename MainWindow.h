@@ -7,9 +7,6 @@ class MainWindow : public QMainWindow, private Ui_MainWindow {
     Q_OBJECT
 public:
     MainWindow();
-public slots:
-    void newGraph();
-    void scrollDown(QWidget* w);
 };
 
 #endif

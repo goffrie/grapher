@@ -1,10 +1,10 @@
-#include "Grapher.h"
+#include "Grapher2D.h"
 
 #include <QPainter>
 #include <QDebug>
 #include <QTimer>
 
-#include "Graph.h"
+#include "Graph2D.h"
 #include "util.h"
 
 #include <mmintrin.h>
@@ -12,27 +12,27 @@
 #include <xmmintrin.h>
 typedef __m128i v4si;
 
-Grapher::Grapher(QWidget* parent) : QWidget(parent), needsRedraw(false), redrawTimer(new QTimer(this)), showAxes(true), showGrid(true) {
+Grapher2D::Grapher2D(QWidget* parent) : QWidget(parent), needsRedraw(false), redrawTimer(new QTimer(this)), showAxes(true), showGrid(true) {
     redrawTimer->setInterval(1000 / 15);
     connect(redrawTimer, SIGNAL(timeout()), this, SLOT(scheduledUpdate()));
 }
 
-Grapher::~Grapher() {
-    foreach (Graph* graph, graphs) delete graph;
+Grapher2D::~Grapher2D() {
+    foreach (Graph2D* graph, graphs) delete graph;
 }
 
-void Grapher::addGraph(QObject* id) {
+void Grapher2D::addGraph(QObject* id) {
     graphs.insert(id, NULL);
     connect(id, SIGNAL(destroyed(QObject*)), SLOT(idDeleted(QObject*)));
 }
 
-void Grapher::setWindow(QRectF rect) {
+void Grapher2D::setWindow(QRectF rect) {
     sceneRect = rect;
     resized();
     update();
 }
 
-void Grapher::resized() {
+void Grapher2D::resized() {
     QTransform t;
     QSizeF scenesize = sceneRect.size();
     t.scale(width() / scenesize.width(), -height() / scenesize.height());
@@ -40,48 +40,21 @@ void Grapher::resized() {
     t.translate(-tl.x(), -tl.y());
     transform = t;
 
-    foreach (Graph* graph, graphs) {
+    foreach (Graph2D* graph, graphs) {
         if (!graph) continue;
         graph->setupRestart(t, width(), height());
     }
 }
 
-void Grapher::setShowAxes(bool _showAxes) {
+void Grapher2D::setShowAxes(bool _showAxes) {
     showAxes = _showAxes;
     update();
 }
 
-void Grapher::setShowGrid(bool _showGrid) {
+void Grapher2D::setShowGrid(bool _showGrid) {
     showGrid = _showGrid;
     update();
 }
-
-inline qreal roundOneDigit(qreal n) {
-    if (n < 0) return -roundOneDigit(-n);
-    if (n == 0) return 0;
-    const qreal l = std::log10(n);
-    const qreal f = std::pow(10, l - std::floor(l));
-    return rnd_d(f) * std::pow(10, std::floor(l));
-}
-
-/*QString textRoundOneDigit(qreal n) {
-    if (n < 0) return QString("-") + textRoundOneDigit(-n);
-    if (n == 0) return QString("0");
-    const qreal l = std::log10(n);
-    const qreal fl = std::floor(l);
-    long il = (long)fl;
-    int digit = qRound(std::pow(10, l - fl));
-    if (digit > 9) {
-        digit /= 10;
-        ++il;
-    }
-    const QString f = QString::number(digit);
-    if (il >= 0) {
-        return f + QString(il, '0');
-    } else {
-        return QString("0.") + QString(-il-1, '0') + f;
-    }
-}*/
 
 static uint32_t table[65536];
 static bool tableGenerated = false;
@@ -132,13 +105,13 @@ QImage combine(QList<QImage> images) {
     return ret;
 }
 
-void Grapher::paintEvent(QPaintEvent*) {
+void Grapher2D::paintEvent(QPaintEvent*) {
     if (width() == 0) return;
     QPainter painter(this);
     painter.fillRect(0, 0, width(), height(), Qt::white);
 
     QList<QImage> images;
-    foreach (Graph* graph, graphs) {
+    foreach (Graph2D* graph, graphs) {
         if (!graph) continue;
         QImage img = graph->img();
         if (img.isNull()) continue;
@@ -236,13 +209,13 @@ void Grapher::paintEvent(QPaintEvent*) {
     }
 }
 
-void Grapher::resizeEvent(QResizeEvent*) {
+void Grapher2D::resizeEvent(QResizeEvent*) {
     resized();
 }
 
-void Grapher::deleteGraph(QObject* id) {
-    QMap<QObject*, Graph*>::iterator it = graphs.find(id);
-    Graph* graph = it.value();
+void Grapher2D::deleteGraph(QObject* id) {
+    QMap<QObject*, Graph2D*>::iterator it = graphs.find(id);
+    Graph2D* graph = it.value();
     if (graph) {
         graph->cancel();
         delete graph;
@@ -251,12 +224,12 @@ void Grapher::deleteGraph(QObject* id) {
     scheduleUpdate(true);
 }
 
-void Grapher::idDeleted(QObject* id) {
+void Grapher2D::idDeleted(QObject* id) {
     deleteGraph(id);
 }
 
-void Grapher::changeGraph(QObject* id, Graph* graph) {
-    Graph* g_graph = graphs[id];
+void Grapher2D::changeGraph(QObject* id, Graph2D* graph) {
+    Graph2D* g_graph = graphs[id];
     if (g_graph) {
         g_graph->cancel();
         delete g_graph;
@@ -267,7 +240,7 @@ void Grapher::changeGraph(QObject* id, Graph* graph) {
     graph->setupRestart(transform, width(), height());
 }
 
-void Grapher::scheduleUpdate(bool now) {
+void Grapher2D::scheduleUpdate(bool now) {
     if (now || !redrawTimer->isActive()) {
         update();
         needsRedraw = false;
@@ -277,7 +250,7 @@ void Grapher::scheduleUpdate(bool now) {
     }
 }
 
-void Grapher::scheduledUpdate() {
+void Grapher2D::scheduledUpdate() {
     if (needsRedraw) {
         update();
         needsRedraw = false;
@@ -285,4 +258,3 @@ void Grapher::scheduledUpdate() {
         redrawTimer->stop();
     }
 }
-

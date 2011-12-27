@@ -7,118 +7,19 @@
     <x>0</x>
     <y>0</y>
     <width>755</width>
-    <height>600</height>
+    <height>604</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Grapher</string>
   </property>
-  <widget class="QSplitter" name="splitter">
-   <property name="sizePolicy">
-    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-     <horstretch>0</horstretch>
-     <verstretch>0</verstretch>
-    </sizepolicy>
+  <widget class="QTabWidget" name="tabWidget">
+   <property name="tabPosition">
+    <enum>QTabWidget::West</enum>
    </property>
-   <property name="orientation">
-    <enum>Qt::Horizontal</enum>
+   <property name="currentIndex">
+    <number>-1</number>
    </property>
-   <widget class="QScrollArea" name="scrollArea">
-    <property name="sizePolicy">
-     <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
-      <horstretch>0</horstretch>
-      <verstretch>0</verstretch>
-     </sizepolicy>
-    </property>
-    <property name="frameShadow">
-     <enum>QFrame::Sunken</enum>
-    </property>
-    <property name="verticalScrollBarPolicy">
-     <enum>Qt::ScrollBarAlwaysOn</enum>
-    </property>
-    <property name="horizontalScrollBarPolicy">
-     <enum>Qt::ScrollBarAlwaysOff</enum>
-    </property>
-    <property name="widgetResizable">
-     <bool>true</bool>
-    </property>
-    <widget class="QWidget" name="scrollAreaWidgetContents">
-     <property name="geometry">
-      <rect>
-       <x>0</x>
-       <y>0</y>
-       <width>572</width>
-       <height>574</height>
-      </rect>
-     </property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <layout class="QVBoxLayout" name="scrollAreaLayout" stretch="0,0,1">
-      <property name="sizeConstraint">
-       <enum>QLayout::SetMinimumSize</enum>
-      </property>
-      <item>
-       <widget class="WindowSettings" name="windowSettings" native="true"/>
-      </item>
-      <item>
-       <widget class="QPushButton" name="newGraphButton">
-        <property name="text">
-         <string>New Graph</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="verticalSpacer">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>208</width>
-          <height>541</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </widget>
-   </widget>
-   <widget class="QFrame" name="frame">
-    <property name="sizePolicy">
-     <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-      <horstretch>0</horstretch>
-      <verstretch>0</verstretch>
-     </sizepolicy>
-    </property>
-    <property name="frameShape">
-     <enum>QFrame::StyledPanel</enum>
-    </property>
-    <property name="frameShadow">
-     <enum>QFrame::Sunken</enum>
-    </property>
-    <layout class="QVBoxLayout" name="verticalLayout">
-     <property name="spacing">
-      <number>0</number>
-     </property>
-     <property name="margin">
-      <number>0</number>
-     </property>
-     <item>
-      <widget class="Grapher" name="graph" native="true">
-       <property name="minimumSize">
-        <size>
-         <width>150</width>
-         <height>0</height>
-        </size>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -169,34 +70,6 @@
    </property>
   </action>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>WindowSettings</class>
-   <extends>QWidget</extends>
-   <header>WindowSettings.h</header>
-   <container>1</container>
-   <slots>
-    <signal>rectChanged(QRectF)</signal>
-    <signal>showAxes(bool)</signal>
-    <signal>showGrid(bool)</signal>
-   </slots>
-  </customwidget>
-  <customwidget>
-   <class>Grapher</class>
-   <extends>QWidget</extends>
-   <header>Grapher.h</header>
-   <container>1</container>
-   <slots>
-    <slot>setWindow(QRectF)</slot>
-    <slot>setShowAxes(bool)</slot>
-    <slot>setShowGrid(bool)</slot>
-   </slots>
-  </customwidget>
- </customwidgets>
- <tabstops>
-  <tabstop>scrollArea</tabstop>
-  <tabstop>newGraphButton</tabstop>
- </tabstops>
  <resources/>
  <connections>
   <connection>
@@ -212,70 +85,6 @@
     <hint type="destinationlabel">
      <x>399</x>
      <y>299</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>newGraphButton</sender>
-   <signal>clicked()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>newGraph()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>324</x>
-     <y>63</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>273</x>
-     <y>-2</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>windowSettings</sender>
-   <signal>rectChanged(QRectF)</signal>
-   <receiver>graph</receiver>
-   <slot>setWindow(QRectF)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>218</x>
-     <y>33</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>747</x>
-     <y>140</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>windowSettings</sender>
-   <signal>showAxes(bool)</signal>
-   <receiver>graph</receiver>
-   <slot>setShowAxes(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>437</x>
-     <y>33</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>634</x>
-     <y>98</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>windowSettings</sender>
-   <signal>showGrid(bool)</signal>
-   <receiver>graph</receiver>
-   <slot>setShowGrid(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>539</x>
-     <y>35</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>617</x>
-     <y>68</y>
     </hint>
    </hints>
   </connection>
