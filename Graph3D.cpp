@@ -52,7 +52,7 @@ void Sphere::startThread() {
     for (float theta = 0; theta <= M_PI; theta += 0.01f) {
         for (float phi = 0; phi <= M_PI*2; phi += 0.01f) {
             Vector3D p(std::sin(theta)*std::cos(phi), std::sin(theta)*std::sin(phi), std::cos(theta));
-            m_buf.drawLitPoint(p, qRgba(0, 200, 0, 255), p, Vector3D(1, 1, 1));
+            m_buf.drawTransformLitPoint(p, qRgba(0, 200, 0, 255), p, Vector3D(1, 1, 1));
         }
     }
     emit updated();
@@ -131,7 +131,7 @@ void ImplicitGraph3D::restart() {
             VectorR vdy = dy->evaluateVector(num);
             VectorR vdz = dz->evaluateVector(num);
             for (std::size_t i = 0; i < num; ++i) {
-                m_buf.drawLitPoint(Vector3D(ox[i], oy[i], oz[i]), c, Vector3D(vdx[i], vdy[i], vdz[i]), m_light, opt[i]);
+                m_buf.drawTransformLitPoint(Vector3D(ox[i], oy[i], oz[i]), c, Vector3D(vdx[i], vdy[i], vdz[i]), m_light, opt[i]);
                 if (cancelled) return;
             }
             VECTOR_FREE(vdx);

@@ -291,6 +291,19 @@ Buffer3D& Buffer3D::operator=(Buffer3D&& buf) {
     return *this;
 }
 
+Buffer3D Buffer3D::copy() const {
+    Buffer3D r;
+    r.m_width = m_width;
+    r.m_height = m_height;
+    r.m_transform = m_transform;
+    const int size = m_width*m_height;
+    r.m_pixels = new QRgb[size];
+    r.m_zbuffer = new Number[size];
+    std::memcpy(r.m_pixels, m_pixels, sizeof(QRgb)*size);
+    std::memcpy(r.m_zbuffer, m_zbuffer, sizeof(Number)*size);
+    return r;
+}
+
 
 void Buffer3D::clear() {
     std::memset(m_pixels, 255, sizeof(QRgb)*m_width*m_height);
@@ -300,7 +313,7 @@ void Buffer3D::clear() {
     }
 }
 
-void Buffer3D::drawPoint(const Vector3D& p, QRgb c) {
+void Buffer3D::drawTransformPoint(const Vector3D& p, QRgb c) {
     const Vector3D tp = m_transform * p;
     const int x = qRound(tp.x()), y = qRound(tp.y());
     const Number& z = tp.z();
@@ -321,7 +334,7 @@ void Buffer3D::setPixel(const Vector3D& p, QRgb c) {
     m_pixels[idx] = c;
 }
 
-void Buffer3D::drawLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& light, int idx) {
+void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& light, int idx) {
     const Vector3D tp = m_transform * p;
     const int x = qRound(tp.x()), y = qRound(tp.y());
     const Number& z = tp.z();
@@ -350,4 +363,21 @@ void Buffer3D::drawLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, c
     const __m64 litcw = _mm_cvtps_pi16(litc);
     const __m64 litcb = _mm_packs_pu16(litcw, litcw);
     m_pixels[idx] = (QRgb) _mm_cvtsi64_si32(litcb);
+}
+
+void Buffer3D::drawBuffer(int x, int y, const Buffer3D& buf) {
+    int ymax = qMin(y + buf.m_height, m_height);
+    int xmax = qMin(x + buf.m_width, m_width);
+    for (int Y = y; Y < ymax; ++Y) {
+        for (int X = x; X < xmax; ++X) {
+            int idx = Y*m_width + X;
+            bool copy = m_zbuffer[idx] < buf.m_zbuffer[idx];
+            m_zbuffer[idx] = copy ? buf.m_zbuffer[idx] : m_zbuffer[idx];
+            m_pixels[idx] = copy ? buf.m_pixels[idx] : m_pixels[idx];
+        }
+    }
+}
+
+QImage Buffer3D::image() const {
+    return QImage(reinterpret_cast<const uchar*>(m_pixels), (int)m_width, (int)m_height, (int)(m_width*sizeof(QRgb)), QImage::Format_RGB32);
 }

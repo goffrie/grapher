@@ -61,10 +61,24 @@ void Grapher3D::setShowAxes(bool _showAxes) {
 void Grapher3D::paintEvent(QPaintEvent*) {
     if (width() == 0) return;
     QPainter painter(this);
+    Buffer3D* buf = NULL;
+    Buffer3D _buf;
     foreach (Graph3D* graph, graphs) {
         if (!graph) continue;
-        painter.drawImage(0, 0, graph->buf().image());
-        break;
+        if (!buf) {
+            buf = const_cast<Buffer3D*>(&graph->buf()); // not actually going to modify it...
+        } else {
+            if (buf != &_buf) {
+                _buf = buf->copy();
+                buf = &_buf;
+            }
+            buf->drawBuffer(0, 0, graph->buf());
+        }
+    }
+    if (buf) {
+        painter.drawImage(0, 0, buf->image());
+    } else {
+        painter.fillRect(0, 0, width(), height(), Qt::white);
     }
 }
 

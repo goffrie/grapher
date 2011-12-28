@@ -72,19 +72,22 @@ public:
     Buffer3D(Buffer3D&& buf) { *this = std::move(buf); }
     ~Buffer3D();
 
+    Buffer3D copy() const;
+
     Buffer3D& operator=(Buffer3D&& buf);
 
     void clear();
 
     const Transform3D& transform() const { return m_transform; }
 
-    void drawPoint(const Vector3D& p, QRgb c);
+    void drawTransformPoint(const Vector3D& p, QRgb c);
     // don't have to be unit vectors
-    void drawLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& l, int idx = -1);
+    void drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& l, int idx = -1);
 
     void setPixel(const Vector3D& p, QRgb c);
+    void drawBuffer(int x, int y, const Buffer3D& buf);
 
-    QImage image() const { return QImage(reinterpret_cast<const uchar*>(m_pixels), (int)m_width, (int)m_height, (int)(m_width*sizeof(QRgb)), QImage::Format_RGB32); }
+    QImage image() const;
 };
 
 
