@@ -108,14 +108,6 @@ void ImplicitGraph3D::restart() {
     bool invertible;
     const Transform3D inv = m_transform.inverted(&invertible);
     Q_ASSERT(invertible);
-/*    typedef QPair<int, int> Range;
-    QList<Range> ranges;
-    ranges << Range(0, m_height);
-    while (ranges.size()) {
-        foreach (Range range, ranges) {
-            
-        }
-    }*/
     QRgb c = m_color.rgba();
     for (int Y = 0; Y < m_height; ++Y) {
         UVector ox(VECTOR_ALLOC(m_width));
@@ -148,7 +140,6 @@ void ImplicitGraph3D::restart() {
             VECTOR_FREE(vdy);
             VECTOR_FREE(vdz);
         }
-//        qDebug() << Y << m_height;
         emit updated();
     }
 }
@@ -223,155 +214,18 @@ inline bool rayAtPoint(const Transform3D& inv, const Vector3D& eyeray, float y, 
     return true;
 }
 
-constexpr Number epsilon = 1e-6f;
-
-struct wrop {
-    Vector v;
-    wrop(Vector _v) : v(_v) {}
-    wrop() : v(NULL) {}
-    ~wrop() { if(v) VECTOR_FREE(v); }
-};
-
-bool brute(const EPtr& _f, const Variable& tv, Number& guess) {
-    static QThreadStorage<wrop> storage;
-    constexpr int num = 4096;
-    Vector t;
-    if (storage.hasLocalData()) {
-        t = storage.localData().v;
-    } else {
-        t = VECTOR_ALLOC(num);
-        for (int i = 0; i < num; ++i) {
-            t[i] = Number(i) / Number(num);
-        }
-        storage.setLocalData(wrop(t));
-    }
-    EPtr te = ExternalVector::create(t);
-    Expression::Subst s;
-    s.insert(std::make_pair(tv, &*te));
-    EPtr f = _f->substitute(s);
-    UVector v(f->evaluateVector(num));
-    for (int i = 0; i < num; ++i) {
-        if (v[i] < epsilon && v[i] > -epsilon) {
-            guess = t[i];
-            return true;
-        }
-    }
-    return false;
-}
+constexpr Number epsilon = 1e-5f;
 
 inline bool zero(float n) { return !(n > epsilon || n < -epsilon); }
 
-// Newton's method, but with strictly increasing guesses
-template<typename T> bool newton(const EPtr* f, int fsize, const Variable& tv, Number& guess, T& guessChanged) {
-    guessChanged(guess);
-    if (fsize < 2) {
-        qDebug() << "Trying to brute, BROKEN";
-        return brute(f[0], tv, guess);
-    }
-    int iterations = 30;
-    Number v = f[0]->evaluate();
-    do {
-        if (iterations-- == 0 || guess > 1) {
-            return false; // baaaill outttt
-        }
-        if (!gsl_finite(v)) {
-            v += epsilon;
-            continue;
-        }
-        Number p;
-        int iter2 = 30;
-        Number adj;
-        while ((adj = v/(p = f[1]->evaluate())) > guess) {
-            if (iter2-- == 0 || !gsl_finite(v)) {
-                return zero(v); // baaailll outttt
-            }
-            Number _guess = guess;
-            // find somewhere better!
-            if (!newton(f+1, fsize-1, tv, guess, guessChanged)) {
-                guess = _guess; // god dag
-                iter2 -= 5;
-//                return zero(v); // recursive bailout
-            }
-            guess += epsilon;
-            guessChanged(guess);
-            if (!(guess <= 1)) {
-                return false;
-            }
-            v = f[0]->evaluate();
-        }
-        guess -= adj * 0.2f;
-        guessChanged(guess);
-        if (!(guess <= 1)) {
-            return false;
-        }
-        v = f[0]->evaluate();
-    } while (!zero(v));
-    if (!gsl_finite(v)) {
-        return false;
-    }
-    return true; // yeah!!!!!!!!
-}
 template<typename T> bool propernewton(const EPtr& f, const EPtr& g, const Variable& tv, Number& guess, T& guessChanged) {
-    int iterations = 3;
+    int iterations = 6;
     while (iterations--) {
         guess -= f->evaluate()/g->evaluate();
         guessChanged(guess);
     }
     Number v = f->evaluate();
     return gsl_finite(guess) && gsl_finite(v) && zero(v);
-}
-// Halley's method
-template<typename T> bool halley(const EPtr* f, int fsize, const Variable& tv, Number& guess, T& guessChanged) {
-    guessChanged(guess);
-    if (fsize < 3) {
-        qDebug() << "Trying to newton";
-        return newton(f, fsize, tv, guess, guessChanged);
-    }
-    int iterations = 30;
-    Number v = (*(Expression**)(&f[0]))->evaluate();//f[0]->evaluate();
-    do {
-        if (iterations-- == 0 || guess > 1) {
-            return false; // baaaill outttt
-        }
-        if (!gsl_finite(v)) {
-            v += epsilon;
-            continue;
-        }
-        int iter2 = 30;
-        Number adj;
-        while (true) {
-            float p = (*(Expression**)(&f[1]))->evaluate();//f[1]->evaluate();
-            float pp = f[2]->evaluate();
-            adj = v * p / (p*p - 0.5f * v * pp);
-            if (adj <= guess) break;
-            if (iter2-- == 0 || !gsl_finite(v)) {
-                return zero(v); // baaailll outttt
-            }
-            Number _guess = guess;
-            // find somewhere better!
-            if (!newton(f+1, fsize-1, tv, guess, guessChanged)) {
-                guess = _guess; // god dag
-                iter2 -= 5;
-//                return zero(v); // recursive bailout
-            }
-            guess += epsilon;
-            guessChanged(guess);
-/*            if (!(guess <= 1)) {
-                return false;
-            }*/
-            v = f[0]->evaluate();
-        }
-        guess -= adj;
-        guessChanged(guess);
-        /*if (!(guess <= 1)) {
-            return false;
-        }*/
-        v = f[0]->evaluate();
-    } while (!zero(v));
-    if (!gsl_finite(v)) {
-        return false;
-    }
-    return true; // yeah!!!!!!!!
 }
 
 template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
