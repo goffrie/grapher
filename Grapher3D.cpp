@@ -26,7 +26,7 @@ void Grapher3D::addGraph(QObject* id) {
     connect(id, SIGNAL(destroyed(QObject*)), SLOT(idDeleted(QObject*)));
 }
 
-void Grapher3D::setWindow(Vector3D _boxa, Vector3D _boxb) {
+void Grapher3D::setBox(Vector3D _boxa, Vector3D _boxb) {
     if (boxa != _boxa || boxb != _boxb) {
         boxa = _boxa;
         boxb = _boxb;

@@ -1,5 +1,5 @@
-#ifndef _WINDOWSETTINGS_H_
-#define _WINDOWSETTINGS_H_
+#ifndef _WINDOW2DSETTINGS_H_
+#define _WINDOW2DSETTINGS_H_
 
 #include "ui_Window2DSettings.h"
 #include <QGroupBox>

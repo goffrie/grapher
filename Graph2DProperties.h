@@ -1,8 +1,7 @@
-#ifndef _GRAPHPROPERTIES_H_
-#define _GRAPHPROPERTIES_H_
+#ifndef _GRAPH2DPROPERTIES_H_
+#define _GRAPH2DPROPERTIES_H_
 
 #include "ui_Graph2DProperties.h"
-#include <QGroupBox>
 
 class Graph2D;
 
@@ -21,7 +20,6 @@ public:
     virtual ~Graph2DProperties();
 signals:
     void graphChanged(QObject* id, Graph2D* graph);
-//    void deleteRequest();
 public slots:
     void textChanged();
     void deletePressed();

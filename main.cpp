@@ -1,25 +1,31 @@
 #include <QApplication>
 
 #include <iostream>
-#include "MainWindow.h"
+
+#include <gsl/gsl_errno.h>
+
+#include "Expression.h"
 #include "Grapher3D.h"
 #include "Graph3D.h"
-#include <gsl/gsl_errno.h>
-#include "Expression.h"
+#include "MainWindow.h"
+#include "Render3D.h"
 
 int main(int argc, char *argv[]) {
     gsl_set_error_handler_off();
-    
+
     QApplication app(argc, argv);
     app.setApplicationName("Grapher");
     qRegisterMetaType<Variable>();
-    
+    qRegisterMetaType<Vector3D>();
+    qRegisterMetaType<Transform3D>();
+
     MainWindow* window = new MainWindow();
     window->show();
+#if 0
     Grapher3D* g = new Grapher3D();
-//    g->setWindow(Vector3D(-5,-2,-5),Vector3D(5,2,5));
-//    g->setWindow(Vector3D(-1,-1,-1),Vector3D(1,1,1));
-    g->setWindow(Vector3D(-2,-1,-2),Vector3D(2,1,2));
+//    g->setBox(Vector3D(-5,-2,-5),Vector3D(5,2,5));
+//    g->setBox(Vector3D(-1,-1,-1),Vector3D(1,1,1));
+    g->setBox(Vector3D(-2,-1,-2),Vector3D(2,1,2));
     g->setLightSource(Vector3D(30,-30,30));
     QObject* o = new QObject;
     g->addGraph(o);
@@ -32,5 +38,6 @@ int main(int argc, char *argv[]) {
     gr->setColor(QColor(230, 10, 10, 255));
     g->changeGraph(o, gr);
     g->show();
+#endif
     return app.exec();
 }

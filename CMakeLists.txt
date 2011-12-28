@@ -5,9 +5,52 @@ project(grapher)
 find_package(Qt4 REQUIRED)
 find_package(GSL REQUIRED)
 
-set(grapher_SOURCES main.cpp Expression.cpp Graph.cpp Graph2D.cpp Graph3D.cpp Grapher2D.cpp Grapher3D.cpp Parser.cpp MainWindow.cpp Window2DSettings.cpp Graph2DProperties.cpp UI2DFactory.cpp UI.cpp Render3D.cpp)
-set(grapher_HEADERS Expression.h Graph.h Graph2D.h Graph3D.h Grapher2D.h Grapher3D.h Parser.h MainWindow.h Window2DSettings.h Graph2DProperties.h UIFactory.h UI2DFactory.h UI.h Render3D.h)
-set(grapher_UI MainWindow.ui Window2DSettings.ui Graph2DProperties.ui UI.ui)
+set(grapher_SOURCES
+    main.cpp
+    Expression.cpp
+    Graph.cpp
+    Graph2D.cpp
+    Graph3D.cpp
+    Grapher2D.cpp
+    Grapher3D.cpp
+    Parser.cpp
+    MainWindow.cpp
+    Window2DSettings.cpp
+    Window3DSettings.cpp
+    Graph2DProperties.cpp
+    Graph3DProperties.cpp
+    UI2DFactory.cpp
+    UI3DFactory.cpp
+    UI.cpp
+    Render3D.cpp
+)
+set(grapher_HEADERS
+    Expression.h
+    Graph.h
+    Graph2D.h
+    Graph3D.h
+    Grapher2D.h
+    Grapher3D.h
+    Parser.h
+    MainWindow.h
+    Window2DSettings.h
+    Window3DSettings.h
+    Graph2DProperties.h
+    Graph3DProperties.h
+    UIFactory.h
+    UI2DFactory.h
+    UI3DFactory.h
+    UI.h
+    Render3D.h
+)
+set(grapher_UI
+    MainWindow.ui
+    UI.ui
+    Window2DSettings.ui
+    Window3DSettings.ui
+    Graph2DProperties.ui
+    Graph3DProperties.ui
+)
 
 # set(asmjit_SOURCES AsmJit/Assembler.cpp AsmJit/AssemblerX86X64.cpp AsmJit/CodeGenerator.cpp AsmJit/Compiler.cpp AsmJit/CompilerX86X64.cpp AsmJit/CpuInfo.cpp AsmJit/Defs.cpp AsmJit/DefsX86X64.cpp AsmJit/Logger.cpp AsmJit/MemoryManager.cpp AsmJit/Operand.cpp AsmJit/OperandX86X64.cpp AsmJit/Platform.cpp AsmJit/Util.cpp)
 # set(asmjit_HEADERS AsmJit/ApiBegin.h AsmJit/ApiEnd.h AsmJit/AsmJit.h AsmJit/Assembler.h AsmJit/AssemblerX86X64.h AsmJit/Build.h AsmJit/CodeGenerator.h AsmJit/Compiler.h AsmJit/CompilerX86X64.h AsmJit/Config.h AsmJit/CpuInfo.h AsmJit/Defs.h AsmJit/DefsX86X64.h AsmJit/Logger.h AsmJit/MemoryManager.h AsmJit/Operand.h AsmJit/OperandX86X64.h AsmJit/Platform.h AsmJit/Util.h AsmJit/Util_p.h)

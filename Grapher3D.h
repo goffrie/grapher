@@ -33,7 +33,7 @@ public slots:
     void idDeleted(QObject* id);
     void changeGraph(QObject* id, Graph3D* graph);
     void resized();
-    void setWindow(Vector3D boxa, Vector3D boxb);
+    void setBox(Vector3D boxa, Vector3D boxb);
     void setLightSource(Vector3D light);
     void scheduleUpdate(bool now = false);
     void scheduledUpdate();

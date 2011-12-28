@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Graph3DProperties</class>
+ <widget class="QGroupBox" name="Graph3DProperties">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>356</width>
+    <height>245</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>GroupBox</string>
+  </property>
+  <property name="title">
+   <string>Graph</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QTabWidget" name="graphTypeSwitcher">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="relation_tab">
+      <attribute name="title">
+       <string>Relation</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout_2">
+       <property name="fieldGrowthPolicy">
+        <enum>QFormLayout::ExpandingFieldsGrow</enum>
+       </property>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_equation">
+         <property name="text">
+          <string>Equation:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="rel_equation"/>
+       </item>
+      </layout>
+      <zorder>rel_equation</zorder>
+      <zorder>label_equation</zorder>
+     </widget>
+     <widget class="QWidget" name="parametric_tab">
+      <attribute name="title">
+       <string>Parametric</string>
+      </attribute>
+      <layout class="QFormLayout" name="formLayout">
+       <property name="fieldGrowthPolicy">
+        <enum>QFormLayout::ExpandingFieldsGrow</enum>
+       </property>
+       <item row="1" column="0">
+        <widget class="QLabel" name="xLabel">
+         <property name="text">
+          <string>x(t) =</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="par_x"/>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="yLabel">
+         <property name="text">
+          <string>y(t) =</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLineEdit" name="par_y"/>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="zLabel">
+         <property name="text">
+          <string>z(t) =</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QLineEdit" name="par_z"/>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="tLabel">
+         <property name="text">
+          <string>t ∈</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <layout class="QHBoxLayout" name="tLayout">
+         <item>
+          <widget class="QLabel" name="tLeft">
+           <property name="text">
+            <string>[</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="par_tMin">
+           <property name="placeholderText">
+            <string>min</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="tComma">
+           <property name="text">
+            <string>,</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="par_tMax">
+           <property name="placeholderText">
+            <string>max</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="tRight">
+           <property name="text">
+            <string>]</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="uLabel">
+         <property name="text">
+          <string>u ∈</string>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="1">
+        <layout class="QHBoxLayout" name="uLayout">
+         <item>
+          <widget class="QLabel" name="uLeft">
+           <property name="text">
+            <string>[</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="par_uMin">
+           <property name="placeholderText">
+            <string>min</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="uComma">
+           <property name="text">
+            <string>,</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="par_uMax">
+           <property name="placeholderText">
+            <string>max</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="uRight">
+           <property name="text">
+            <string>]</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1,0">
+     <item>
+      <widget class="QPushButton" name="deleteButton">
+       <property name="text">
+        <string>Delete</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="errorMsg">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="colorButton">
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <tabstops>
+  <tabstop>graphTypeSwitcher</tabstop>
+  <tabstop>rel_equation</tabstop>
+  <tabstop>par_x</tabstop>
+  <tabstop>par_y</tabstop>
+  <tabstop>par_tMin</tabstop>
+  <tabstop>par_tMax</tabstop>
+  <tabstop>deleteButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>deleteButton</sender>
+   <signal>clicked()</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>deletePressed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>56</x>
+     <y>235</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>76</x>
+     <y>1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>rel_equation</sender>
+   <signal>editingFinished()</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>159</x>
+     <y>61</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>238</x>
+     <y>0</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_x</sender>
+   <signal>editingFinished()</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>128</x>
+     <y>73</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>196</x>
+     <y>11</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_y</sender>
+   <signal>editingFinished()</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>167</x>
+     <y>102</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>321</x>
+     <y>11</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_tMin</sender>
+   <signal>editingFinished()</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>212</x>
+     <y>165</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>355</x>
+     <y>7</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_tMax</sender>
+   <signal>editingFinished()</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>439</x>
+     <y>165</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>301</x>
+     <y>19</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>graphTypeSwitcher</sender>
+   <signal>currentChanged(int)</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>65</x>
+     <y>41</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>23</x>
+     <y>7</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_z</sender>
+   <signal>editingFinished()</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>111</x>
+     <y>135</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>139</x>
+     <y>17</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_uMin</sender>
+   <signal>editingFinished()</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>156</x>
+     <y>182</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>158</x>
+     <y>241</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>par_uMax</sender>
+   <signal>editingFinished()</signal>
+   <receiver>Graph3DProperties</receiver>
+   <slot>textChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>325</x>
+     <y>183</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>331</x>
+     <y>240</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>textChanged()</slot>
+  <slot>deletePressed()</slot>
+ </slots>
+</ui>

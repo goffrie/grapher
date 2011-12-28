@@ -3,9 +3,8 @@
 
 #include <initializer_list>
 
-#include <QVector2D>
-#include <QVector3D>
 #include <QMatrix4x4>
+#include <QMetaType>
 #include <QImage>
 #include <qrgb.h>
 
@@ -36,6 +35,7 @@ struct Vector3D {
     //QVector2D toVector2D() const { return QVector2D(v.m[0], v.m[1]); }
     Vector3D normalized() const;
 };
+Q_DECLARE_METATYPE(Vector3D);
 struct Transform3D {
     v4sfi rows[4];
     Transform3D(const float* f = identity);
@@ -44,6 +44,7 @@ struct Transform3D {
     static Transform3D translator(qreal dx, qreal dy, qreal dz);
     static Transform3D scaler(qreal x, qreal y, qreal z);
 };
+Q_DECLARE_METATYPE(Transform3D);
 
 Vector3D operator*(const Transform3D& t, const Vector3D& v);
 Transform3D operator*(const Transform3D& a, const Transform3D& b);

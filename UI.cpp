@@ -32,6 +32,7 @@ UI::UI(UIFactory* factory, QWidget* parent): QSplitter(parent), m_factory(factor
 void UI::newGraph() {
     QWidget* newGraph = m_factory->graphProperties();
     scrollAreaLayout->insertWidget(scrollAreaLayout->count()-2, newGraph);
+    fixPane();
     QMetaObject::invokeMethod(this, "scrollDown", Qt::QueuedConnection, Q_ARG(QWidget*, newGraph)); // super hackiness
 }
 
