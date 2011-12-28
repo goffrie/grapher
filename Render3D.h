@@ -97,10 +97,12 @@ public:
     const Transform3D& transform() const { return m_transform; }
 
     void drawTransformPoint(const Vector3D& p, QRgb c);
+    void drawTransformLine(const Vector3D& p1, const Vector3D& p2, QRgb c);
     // don't have to be unit vectors
     void drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& l, int idx = -1);
 
     void setPixel(const Vector3D& p, QRgb c);
+    void drawLine(const Vector3D& p1, const Vector3D& p2, QRgb c);
     void drawBuffer(int x, int y, const Buffer3D& buf);
 
     QImage image() const;

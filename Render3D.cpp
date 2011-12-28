@@ -360,6 +360,18 @@ void Buffer3D::setPixel(const Vector3D& p, QRgb c) {
     m_pixels[idx] = c;
 }
 
+void Buffer3D::drawTransformLine(const Vector3D& p1, const Vector3D& p2, QRgb c) {
+    drawLine(m_transform * p1, m_transform * p2, c);
+}
+
+void Buffer3D::drawLine(const Vector3D& p1, const Vector3D& p2, QRgb c) {
+    Vector3D dp = p2 - p1;
+    float tstep = 1.f / qMax(qAbs(dp.x()), qAbs(dp.y()));
+    for (float t = 0; t <= 1; t += tstep) {
+        setPixel(p1 + dp*t, c);
+    }
+}
+
 void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& light, int idx) {
     const Vector3D tp = m_transform * p;
     const int x = qRound(tp.x()), y = qRound(tp.y());

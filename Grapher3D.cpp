@@ -61,25 +61,24 @@ void Grapher3D::setShowAxes(bool _showAxes) {
 void Grapher3D::paintEvent(QPaintEvent*) {
     if (width() == 0) return;
     QPainter painter(this);
-    Buffer3D* buf = NULL;
-    Buffer3D _buf;
+    Buffer3D buf(width(), height(), transform);
+    if (showAxes) for (int i = 0; i < 3; ++i) for (int j = 0; j < 2; ++j) for (int k = 0; k < 2; ++k) {
+        Vector3D a;
+        for (int l = 0, n = j; l < 3; ++l) {
+            if (l == i) continue;
+            a.v.m[l] = (n?boxa:boxb).v.m[l];
+            n = k;
+        }
+        Vector3D b = a;
+        a.v.m[i] = boxa.v.m[i];
+        b.v.m[i] = boxb.v.m[i];
+        buf.drawTransformLine(a, b, Qt::black);
+    }
     foreach (Graph3D* graph, graphs) {
         if (!graph) continue;
-        if (!buf) {
-            buf = const_cast<Buffer3D*>(&graph->buf()); // not actually going to modify it...
-        } else {
-            if (buf != &_buf) {
-                _buf = buf->copy();
-                buf = &_buf;
-            }
-            buf->drawBuffer(0, 0, graph->buf());
-        }
+        buf.drawBuffer(0, 0, graph->buf());
     }
-    if (buf) {
-        painter.drawImage(0, 0, buf->image());
-    } else {
-        painter.fillRect(0, 0, width(), height(), Qt::white);
-    }
+    painter.drawImage(0, 0, buf.image());
 }
 
 void Grapher3D::resizeEvent(QResizeEvent*) {
