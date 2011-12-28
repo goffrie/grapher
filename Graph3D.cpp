@@ -84,9 +84,7 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     s.insert(std::make_pair(y, &*ey));
     s.insert(std::make_pair(z, &*ez));
     rayfunc[0] = func->substitute(s)->simplify();
-    for (int i = 1; i < dstacksize; ++i) {
-        rayfunc[i] = rayfunc[i-1]->derivative(tv)->simplify();
-    }
+    rayfunc[1] = rayfunc[0]->derivative(tv)->simplify();
     d_rayfunc = (rayfunc[0]->ecopy() / rayfunc[1]->ecopy())->simplify();
     dx = func->derivative(x)->simplify();
     dy = func->derivative(y)->simplify();
@@ -116,7 +114,7 @@ void ImplicitGraph3D::restart() {
         std::unique_ptr<int[]> opt(new int[m_width]);
         std::size_t num = 0;
         for (int X = 0; X < m_width; ++X) {
-            if (renderPoint(inv, Y, X, &ox[num], &oy[num], &oz[num], (Y==169&&X==487))) {
+            if (renderPoint(inv, Y, X, &ox[num], &oy[num], &oz[num])) {
                 opt[num] = m_width*Y+X;
                 ++num;
             }
@@ -262,10 +260,11 @@ template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h
     return false;
 }
 
-bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz, bool showDiagnostics) {
+struct nullfunc { void operator()(...) { } };
+
+bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz) {
     Ray ray;
     if (!rayAtPoint(inv, m_eyeray, py, px, m_boxa, m_boxb, ray)) {
-//        m_buf.setPixel(Vector3D(px,py,100000),qRgba(255,0,0,255));
         return false;
     }
     v1[0] = ray.a.x();
@@ -275,66 +274,68 @@ bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int py, int px, Vector
     dv[0] = _dv.x();
     dv[1] = _dv.y();
     dv[2] = _dv.z();
-/*    Variable tv(std::string("t"));
-    Expression::Subst s;
-    EPtr ex = ray.evaluator<X>(tv.ecopy());
-    EPtr ey = ray.evaluator<Y>(tv.ecopy());
-    EPtr ez = ray.evaluator<Z>(tv.ecopy());
-    s.insert(std::make_pair(x, &*ex));
-    s.insert(std::make_pair(y, &*ey));
-    s.insert(std::make_pair(z, &*ez));
-    EPtr _f = func->substitute(s);*/
-//    std::cerr << px << ',' << py << ": " << _f->toString() << std::endl;
-    constexpr int diagw = 100, diagh = 100;
-    constexpr int tesize = sizeof(te)/sizeof(te[0]);
-    float min,max;
-    if (showDiagnostics) {
-        std::cerr << rayfunc[0]->toString() << std::endl;
-        for (int i = 0; i < 3; ++i) {
-            std::cerr << &v1[i] << ':' << v1[i] << std::endl;
-        }
-        for (int i = 0; i < 3; ++i) {
-            std::cerr << &dv[i] << ':' << dv[i] << std::endl;
-        }
-/*        for (int i = 0; i < tesize; ++i) {
-            te[i] = float(i)/float(tesize);
-        }*/
-        UVector f(rayfunc[0]->evaluateVector(tesize));
-        UVector g(d_rayfunc->evaluateVector(tesize));
-        min = GSL_POSINF; max = GSL_NEGINF;
-        for (int i = 0; i < tesize; ++i) {
-            min = qMin(min, f[i]);
-            max = qMax(max, f[i]);
-        }
-        for (int i = 0; i < tesize; ++i) {
-            m_buf.setPixel(Vector3D(i*diagw/tesize, diagh-((-min)*diagh/(max-min)), 100000), qRgba(0, 0, 0, 255));
-        }
-        for (int i = 0; i < tesize; ++i) {
-            m_buf.setPixel(Vector3D(i*diagw/tesize, diagh-((f[i]-min)*diagh/(max-min)), 100000), qRgba(0, 0, 255, 255));
-            m_buf.setPixel(Vector3D(i*diagw/tesize, diagh-((g[i]-min)*diagh/(max-min)), 100000), qRgba(100, 100, 100, 255));
-        }
-    }
-    int wt = 0;
-    auto fcn = showDiagnostics ? std::function<void(float)>([&m_buf,diagw,diagh,&wt](float g)->void{
-        qDebug() << g;
-        for (int yoy = wt; yoy < diagh; yoy += 8) {
-            m_buf.setPixel(Vector3D(g*diagw, yoy, 100000), qRgba(0, 255, 0, 255));
-        }
-        wt = ((wt+1)&7);
-    }) : std::function<void(float)>([](float)->void{return;});
-//    te[0] = 0;
     Number guess = 0;
-    //if (!halley(rayfunc, dstacksize, tv, te[0], fcn)) {
-    if (!superbrute(d_rayfunc, rayfunc[0], rayfunc[1], tv, te, sizeof(te)/sizeof(te[0]), guess, fcn)) {
-        if (showDiagnostics) qDebug() << "not okay" << guess;
- //       m_buf.setPixel(Vector3D(px,py,100000),qRgba(0,0,255,255));
+    if (!superbrute(d_rayfunc, rayfunc[0], rayfunc[1], tv, te, sizeof(te)/sizeof(te[0]), guess, nullfunc())) {
         return false;
     }
-    fcn(guess);
-    if (showDiagnostics) qDebug() << "yey" << guess;
     Vector3D pt = ray.eval(guess);
     *ox = pt.x();
     *oy = pt.y();
     *oz = pt.z();
     return true;
+}
+
+QImage ImplicitGraph3D::diagnostics(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz, QSize size) {
+    Ray ray;
+    if (!rayAtPoint(inv, m_eyeray, py, px, m_boxa, m_boxb, ray)) {
+        return QImage();
+    }
+    QImage result(size, QImage::Format_RGB32);
+    result.fill(Qt::white);
+    v1[0] = ray.a.x();
+    v1[1] = ray.a.y();
+    v1[2] = ray.a.z();
+    Vector3D _dv = ray.b - ray.a;
+    dv[0] = _dv.x();
+    dv[1] = _dv.y();
+    dv[2] = _dv.z();
+    int diagw = size.width(), diagh = size.height();
+    constexpr int tesize = sizeof(te)/sizeof(te[0]);
+    std::cerr << rayfunc[0]->toString() << std::endl;
+    for (int i = 0; i < 3; ++i) {
+        std::cerr << &v1[i] << ':' << v1[i] << std::endl;
+    }
+    for (int i = 0; i < 3; ++i) {
+        std::cerr << &dv[i] << ':' << dv[i] << std::endl;
+    }
+    UVector f(rayfunc[0]->evaluateVector(tesize));
+    UVector g(d_rayfunc->evaluateVector(tesize));
+    float min = f[0], max = f[0];
+    for (int i = 1; i < tesize; ++i) {
+        min = qMin(min, f[i]);
+        max = qMax(max, f[i]);
+    }
+    for (int i = 0; i < tesize; ++i) {
+        result.setPixel(i*diagw/tesize, diagh-((-min)*diagh/(max-min)), qRgba(0, 0, 0, 255));
+    }
+    for (int i = 0; i < tesize; ++i) {
+        result.setPixel(i*diagw/tesize, diagh-((f[i]-min)*diagh/(max-min)), qRgba(0, 0, 255, 255));
+        result.setPixel(i*diagw/tesize, diagh-((g[i]-min)*diagh/(max-min)), qRgba(100, 100, 100, 255));
+    }
+    int wt = 0;
+    auto fcn = std::function<void(float)>([&result,diagw,diagh,&wt](float g)->void{
+        qDebug() << g;
+        for (int yoy = wt; yoy < diagh; yoy += 8) {
+            result.setPixel(g*diagw, yoy, qRgba(0, 255, 0, 255));
+        }
+        wt = ((wt+1)&7);
+    });
+    Number guess = 0;
+    if (superbrute(d_rayfunc, rayfunc[0], rayfunc[1], tv, te, sizeof(te)/sizeof(te[0]), guess, fcn)) {
+        fcn(guess);
+        qDebug() << "yey" << guess;
+    } else {
+        qDebug() << "not okay" << guess;
+    }
+    return result;
 }

@@ -39,10 +39,8 @@ private:
     EPtr func;
     float v1[3], dv[3];
     float te[128] __attribute__((aligned(16)));
-    constexpr static int dstacksize = 2;
-    EPtr rayfunc[dstacksize]; // successive derivatives...
+    EPtr rayfunc[2];
     EPtr d_rayfunc;
-//    EPtr dp_rayfunc;
     EPtr dx, dy, dz;
 
     UVector line;
@@ -58,7 +56,8 @@ protected:
     void restart();
 
     void renderLine(const Transform3D& inv, int y);
-    bool renderPoint(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz, bool showDiagnostics = false);
+    bool renderPoint(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz);
+    QImage diagnostics(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz, QSize size);
 };
 
 #endif
