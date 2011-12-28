@@ -6,7 +6,10 @@
 #include <mmintrin.h>
 #include <emmintrin.h>
 #include <xmmintrin.h>
+
+#ifdef __SSE3__
 #include <pmmintrin.h>
+#endif
 
 #include <gsl/gsl_math.h>
 
@@ -18,6 +21,7 @@ const float Transform3D::identity[16] = {
 0.f, 0.f, 1.f, 0.f,
 0.f, 0.f, 0.f, 1.f };
 
+#ifdef __SSE3__
 Vector3D Vector3D::normalized() const {
     v4sfi vv = { v.v * v.v }; // { x*x, y*y, z*z, 1 }
     vv.m[3] = 0; // { x*x, y*y, z*z, 0 }
@@ -33,6 +37,20 @@ Vector3D Vector3D::normalized() const {
     ret.v.m[3] = 1.f;
     return ret;
 }
+#else
+Vector3D Vector3D::normalized() const {
+    v4sf nv = dot4(v.v, v.v); // {x*x + y*y + z*z} x 4
+    v4sf invsqrtnv = _mm_rsqrt_ps(nv);
+    const static v4sf half = {0.5f, 0.5f, 0.5f, 0.5f};
+    const static v4sf threehalf = {1.5f, 1.5f, 1.5f, 1.5f};
+    v4sf halfnv = half * nv;
+    invsqrtnv *= threehalf - (halfnv * invsqrtnv * invsqrtnv);
+    invsqrtnv *= threehalf - (halfnv * invsqrtnv * invsqrtnv);
+    Vector3D ret(v.v * invsqrtnv);
+    ret.v.m[3] = 1.f;
+    return ret;
+}
+#endif
 
 Transform3D::Transform3D(const float* f) {
     std::memcpy(rows, f, sizeof(float)*16);
@@ -170,14 +188,22 @@ inline Transform3D Transform3D::scaler(qreal dx, qreal dy, qreal dz) {
     return m;
 }
 
+#ifdef __SSE3__
+#define haddps(a, b) _mm_hadd_ps(a, b)
+#else
+#define haddps(a, b) (_mm_shuffle_ps(a, b, 0x88) + _mm_shuffle_ps(a, b, 0xDD))
+#endif
 Vector3D operator*(const Transform3D& t, const Vector3D& v) {
     const v4sf a = t.rows[0].v * v.v.v; // {t00 * v0, t01 * v1, t02 * v2, t03 * v3}
     const v4sf b = t.rows[1].v * v.v.v; // {t10 * v0, t11 * v1, t12 * v2, t13 * v3}
     const v4sf c = t.rows[2].v * v.v.v; // {t20 * v0, t21 * v1, t22 * v2, t23 * v3}
-    const v4sf ab = _mm_hadd_ps(a, b); // {t00 * v0 + t01 * v1, t02 * v2 + t03 * v3, t10 * v0 + t11 * v1, t12 * v2 + t13 * v3}
+    const v4sf ab = haddps(a, b); // {t00 * v0 + t01 * v1, t02 * v2 + t03 * v3, t10 * v0 + t11 * v1, t12 * v2 + t13 * v3}
     const static v4sf onezeros = {1.f, 0.f, 0.f, 0.f};
-    const v4sf c1 = _mm_hadd_ps(c, onezeros); // {t20 * v0 + t21 * v1, t22 * v2 + t23 * v3, 1.f, 0.f}
-    const v4sf result = _mm_hadd_ps(ab, c1); // {t00 * v0 + t01 * v1 + t02 * v2 + t03 * v3, t10 * v0 + t11 * v1 + t12 * v2 + t13 * v3, t20 * v0 + t21 * v1 + t22 * v2 + t23 * v3, 1.f}
+    const v4sf c1 = haddps(c, onezeros); // {t20 * v0 + t21 * v1, t22 * v2 + t23 * v3, 1.f, 0.f}
+    const v4sf result = haddps(ab, c1); // {t00 * v0 + t01 * v1 + t02 * v2 + t03 * v3,
+                                             //  t10 * v0 + t11 * v1 + t12 * v2 + t13 * v3,
+                                             //  t20 * v0 + t21 * v1 + t22 * v2 + t23 * v3,
+                                             //  1.f}
     return Vector3D(result);
 }
 
@@ -316,7 +342,7 @@ void Buffer3D::clear() {
 void Buffer3D::drawTransformPoint(const Vector3D& p, QRgb c) {
     const Vector3D tp = m_transform * p;
     const int x = qRound(tp.x()), y = qRound(tp.y());
-    const Number& z = tp.z();
+    const Number z = tp.z();
     if (x < 0 || x >= m_width || y < 0 || y >= m_height) return;
     const std::size_t idx = y * m_width + x;
     if (z < m_zbuffer[idx]) return;
@@ -326,7 +352,7 @@ void Buffer3D::drawTransformPoint(const Vector3D& p, QRgb c) {
 
 void Buffer3D::setPixel(const Vector3D& p, QRgb c) {
     const int x = qRound(p.x()), y = qRound(p.y());
-    const Number& z = p.z();
+    const Number z = p.z();
     if (x < 0 || x >= m_width || y < 0 || y >= m_height) return;
     const std::size_t idx = y * m_width + x;
     if (z < m_zbuffer[idx]) return;
@@ -337,7 +363,7 @@ void Buffer3D::setPixel(const Vector3D& p, QRgb c) {
 void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& light, int idx) {
     const Vector3D tp = m_transform * p;
     const int x = qRound(tp.x()), y = qRound(tp.y());
-    const Number& z = tp.z();
+    const Number z = tp.z();
     if (idx == -1) {
         if (x < 0 || x >= m_width || y < 0 || y >= m_height) return;
         idx = y * m_width + x;
@@ -351,10 +377,10 @@ void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& 
     const v4sf nn = n * n;
     const v4sf ll = l * l;
     const v4sf nl = n * l;
-    const v4sf nd_ld_part = _mm_hadd_ps(nn, ll); // { nn[0] + nn[1], nn[2] + nn[3], ll[0] + ll[1], ll[2] + ll[3] }
-    const v4sf nld_part = _mm_hadd_ps(nl, nl); // { nl[0] + nl[1], nl[2] + nl[3], nl[0] + nl[1], nl[2] + nl[3] }
+    const v4sf nd_ld_part = haddps(nn, ll); // { nn[0] + nn[1], nn[2] + nn[3], ll[0] + ll[1], ll[2] + ll[3] }
+    const v4sf nld_part = haddps(nl, nl); // { nl[0] + nl[1], nl[2] + nl[3], nl[0] + nl[1], nl[2] + nl[3] }
     const v4sf cf = _mm_cvtpu8_ps(_mm_cvtsi32_si64(c));
-    const v4sfi nd_ld_nld = { _mm_hadd_ps(nd_ld_part, nld_part) }; // { n * n, l * l, n * l, n * l }
+    const v4sfi nd_ld_nld = { haddps(nd_ld_part, nld_part) }; // { n * n, l * l, n * l, n * l }
     const v4sfi rcps_nd_ld_nld = { _mm_rsqrt_ps(nd_ld_nld.v) }; // { 1/|n|, 1/|l|, 1/sqrt(n*l), 1/sqrt(n*l) }
     //const v4 rcp_nd_ld_nld = { _mm_rcp_ps(nd_ld_nld.v) }; // { 1/|n|, 1/|l|, 1/sqrt(n*l), 1/sqrt(n*l) }
     const float lighting = std::abs(rcps_nd_ld_nld.m[0] * rcps_nd_ld_nld.m[1] * nd_ld_nld.m[2]);

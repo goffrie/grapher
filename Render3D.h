@@ -13,6 +13,7 @@
 #include <xmmintrin.h>
 
 typedef __m128 v4sf;
+#define _mm_shufd(xmm, mask) (_mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xmm), mask)))
 union v4sfi {
     v4sf v;
     float m[4];
@@ -45,6 +46,21 @@ struct Transform3D {
     static Transform3D scaler(qreal x, qreal y, qreal z);
 };
 Q_DECLARE_METATYPE(Transform3D);
+
+inline v4sf dot4(const Vector3D& a, const Vector3D& b) {
+    const static v4sf ones = {1.f, 1.f, 1.f, 1.f};
+    __m128 t = _mm_mul_ps(a.v.v, b.v.v); // {x1*x2, y1*y2, z1*z2, 1}
+    t = _mm_add_ps(t, _mm_shufd(t, 0x4E));
+                      // z1*z2, 1, x1*x2, y1*y2
+        // x1*x2+z1*z2, y1*y2+1, z1*z2+x1*x2, 1+y1*y2
+    return _mm_sub_ps(_mm_add_ps(t, _mm_shufd(t, 0x11)), ones);
+                                    // {y1*y2+1, x1*x2+z1*z2, y1*y2+1, x1*x2+z1*z2
+                      // {x1*x2+y1*y2+z1*z2+1, x1*x2+y1*y2+z1*z2+1, x1*x2+y1*y2+z1*z2+1, x1*x2+y1*y2+z1*z2+1}
+           // {x1*x2+y1*y2+z1*z2} * 4
+}
+inline float dot(const Vector3D& a, const Vector3D& b) {
+    return _mm_cvtss_f32(dot4(a, b));
+}
 
 Vector3D operator*(const Transform3D& t, const Vector3D& v);
 Transform3D operator*(const Transform3D& a, const Transform3D& b);
