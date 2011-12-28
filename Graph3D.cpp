@@ -212,12 +212,12 @@ inline bool rayAtPoint(const Transform3D& inv, const Vector3D& eyeray, float y, 
     return true;
 }
 
-constexpr Number epsilon = 1e-5f;
+constexpr Number epsilon = 1.f / (1<<10);
 
 inline bool zero(float n) { return !(n > epsilon || n < -epsilon); }
 
 template<typename T> bool propernewton(const EPtr& f, const EPtr& g, const Variable& tv, Number& guess, T& guessChanged) {
-    int iterations = 6;
+    int iterations = 10;
     while (iterations--) {
         guess -= f->evaluate()/g->evaluate();
         guessChanged(guess);
@@ -230,6 +230,7 @@ template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h
     UVector v(f->evaluateVector(size));
     UVector w(g->evaluateVector(size));
     int last = 0;
+    const float maxdelta = 2.f / size;
     for (int i = 0; i < size; ++i) {
         if (!gsl_finite(v[i])) {
             continue;
@@ -239,7 +240,7 @@ template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h
             Number _t0 = t[0]; \
             t[0] = guess; \
             guessChanged(guess); \
-            bool ok = propernewton(g, h, tv, t[0], guessChanged) && (qAbs(guess - t[0]) < 0.0625f) && t[0] >= 0 && t[0] <= 1; \
+            bool ok = propernewton(g, h, tv, t[0], guessChanged) && (qAbs(guess - t[0]) < maxdelta) && t[0] >= 0 && t[0] <= 1; \
             guess = t[0]; \
             t[0] = _t0; \
             if (ok) { \
