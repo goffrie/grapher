@@ -20,19 +20,6 @@ Vector Constant::evaluateVector(size_t size) const {
     return r;
 }
 
-Vector ExternalConstant::evaluateVector(size_t size) const {
-    VectorR r = VECTOR_ALLOC(size);
-    const v4sf _c = {*c, *c, *c, *c};
-    VECTOR_LOOP V(r) = _c;
-    return r;
-}
-
-Vector ExternalVector::evaluateVector(size_t size) const {
-    VectorR r = VECTOR_ALLOC(size);
-    std::memcpy(r, c, sizeof(Number)*size);
-    return r;
-}
-
 Number Variable::evaluate() const {
     switch (id->type) {
         case Id::Constant:

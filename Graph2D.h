@@ -67,8 +67,7 @@ class ImplicitGraph : public IteratingGraph {
     Q_OBJECT
     
     Variable x, y;
-    std::unique_ptr<Expression> eqn, _dx, _dy;
-    std::unique_ptr<Expression> sub, dx, dy;
+    std::unique_ptr<Expression> eqn, dx, dy;
     UVector m_px, m_py;
     std::size_t numPts;
     
@@ -89,7 +88,7 @@ class ParametricGraph : public IteratingGraph {
     
     Variable t;
     Number tMin, tMax;
-    std::unique_ptr<Expression> x, y, sx, sy;
+    std::unique_ptr<Expression> x, y;
     std::uniform_real_distribution<Number> distribution;
     std::mt19937 engine;
     UVector pts;

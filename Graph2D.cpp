@@ -98,7 +98,7 @@ void InequalityGraph::restart() {
         }
         if (this->cancelled) return;
         Expression::Subst s;
-        ExternalVector X(px);
+        Variable X(Variable::Id("X", Variable::Id::Vector, px));
         Constant Y(top - y * ystep);
         s.insert(std::make_pair(this->x, &X));
         s.insert(std::make_pair(this->y, &Y));
@@ -138,10 +138,17 @@ void ImplicitGraph::reset(std::unique_ptr<Equation> rel, const Variable& _x, con
     std::cerr << eqn->toString() << std::endl;
     x = _x;
     y = _y;
-    _dx = eqn->derivative(x)->simplify();
-    _dy = eqn->derivative(y)->simplify();
-    std::cerr << _dx->toString() << '|' << _dy->toString() << std::endl;
+    x.id->type = Variable::Id::Vector;
+    y.id->type = Variable::Id::Vector;
+    dx = eqn->derivative(x)->simplify();
+    dy = eqn->derivative(y)->simplify();
+    std::cerr << dx->toString() << '|' << dy->toString() << std::endl;
     resubstitute();
+}
+
+void ImplicitGraph::resubstitute() {
+    x.id->p = m_px.get();
+    y.id->p = m_py.get();
 }
 
 QImage ImplicitGraph::restart() {
@@ -178,7 +185,7 @@ QImage ImplicitGraph::restart() {
     if (cancelled) return QImage();
     UVector gy(dy->evaluateVector(size));
     if (cancelled) return QImage();
-    UVector p (sub->evaluateVector(size));
+    UVector p (eqn->evaluateVector(size));
     if (cancelled) return QImage();
     for (std::size_t i = 0; i < size; ++i) {
         QPointF pt(m_px[i], m_py[i]);
@@ -219,16 +226,6 @@ QImage ImplicitGraph::draw() {
     return _img;
 }
 
-void ImplicitGraph::resubstitute() {
-    Expression::Subst s;
-    ExternalVector X(m_px.get()), Y(m_py.get());
-    s.insert(std::make_pair(x, &X));
-    s.insert(std::make_pair(y, &Y));
-    dx = _dx->substitute(s);
-    dy = _dy->substitute(s);
-    sub = eqn->substitute(s);
-}
-
 QImage ImplicitGraph::iterate() {
     if (cancelled) return QImage();
     std::size_t size = numPts;
@@ -236,7 +233,7 @@ QImage ImplicitGraph::iterate() {
     if (cancelled) return QImage();
     UVector p_gy (dy->evaluateVector(size));
     if (cancelled) return QImage();
-    UVector p_p  (sub->evaluateVector(size));
+    UVector p_p  (eqn->evaluateVector(size));
     if (cancelled) return QImage();
     const VectorR
         gx = p_gx.get(),
@@ -266,14 +263,10 @@ void ParametricGraph::reset(std::unique_ptr<Expression> _x, std::unique_ptr<Expr
     x = _x->simplify();
     y = _y->simplify();
     t = _t;
+    t.id->type = Variable::Id::Vector;
+    t.id->p = pts.get();
     tMin = _tMin;
     tMax = _tMax;
-
-    Expression::Subst s;
-    ExternalVector T(pts.get());
-    s.insert(std::make_pair(t, &T));
-    sx = x->substitute(s);
-    sy = y->substitute(s);
 }
 
 QImage ParametricGraph::restart() {
@@ -310,8 +303,8 @@ QImage ParametricGraph::iterate() {
     if (cancelled) return QImage();
     for (int i = 0; i < numPts; ++i) pts[i] = distribution(engine);
     if (cancelled) return QImage();
-    QFuture<Vector> fy = QtConcurrent::run(sy.get(), &Expression::evaluateVector, (std::size_t)numPts);
-    UVector vx(sx->evaluateVector(numPts));
+    QFuture<Vector> fy = QtConcurrent::run(y.get(), &Expression::evaluateVector, (std::size_t)numPts);
+    UVector vx(x->evaluateVector(numPts));
     fy.waitForFinished();
     UVector vy(fy.result());
     if (cancelled) return QImage();
