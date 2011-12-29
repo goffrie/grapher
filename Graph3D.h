@@ -39,7 +39,7 @@ private:
     EPtr func;
     float v1[3], dv[3];
     float te[128] __attribute__((aligned(16)));
-    EPtr rayfunc[2];
+    EPtr rayfunc[3];
     EPtr d_rayfunc;
     EPtr dx, dy, dz;
 

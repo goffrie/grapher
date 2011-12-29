@@ -85,6 +85,7 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     s.insert(std::make_pair(z, &*ez));
     rayfunc[0] = func->substitute(s)->simplify();
     rayfunc[1] = rayfunc[0]->derivative(tv)->simplify();
+    rayfunc[2] = rayfunc[1]->derivative(tv)->simplify();
     d_rayfunc = (rayfunc[0]->ecopy() / rayfunc[1]->ecopy())->simplify();
     dx = func->derivative(x)->simplify();
     dy = func->derivative(y)->simplify();
@@ -212,11 +213,12 @@ inline bool rayAtPoint(const Transform3D& inv, const Vector3D& eyeray, float y, 
     return true;
 }
 
-constexpr Number epsilon = 1.f / (1<<10);
+constexpr Number epsilon = 1.f / (1<<14);
+constexpr Number bigepsilon = 1.f / (1<<8);
 
 inline bool zero(float n) { return !(n > epsilon || n < -epsilon); }
 
-template<typename T> bool propernewton(const EPtr& f, const EPtr& g, const Variable& tv, Number& guess, T& guessChanged) {
+template<typename T> bool newton(const EPtr& f, const EPtr& g, const Variable& tv, Number& guess, T& guessChanged) {
     int iterations = 10;
     while (iterations--) {
         guess -= f->evaluate()/g->evaluate();
@@ -226,7 +228,18 @@ template<typename T> bool propernewton(const EPtr& f, const EPtr& g, const Varia
     return gsl_finite(guess) && gsl_finite(v) && zero(v);
 }
 
-template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
+template<typename T> bool halley(const EPtr& f, const EPtr& g, const EPtr& h, const Variable& tv, Number& guess, T& guessChanged) {
+    int iterations = 5;
+    while (iterations--) {
+        Number F = f->evaluate(), G = g->evaluate(), H = h->evaluate();
+        guess -= F * G / (G * G - 0.5f * F * H);
+        guessChanged(guess);
+    }
+    Number v = f->evaluate();
+    return gsl_finite(guess) && gsl_finite(v) && zero(v);
+}
+
+template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h, const EPtr& j, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
     UVector v(f->evaluateVector(size));
     UVector w(g->evaluateVector(size));
     int last = 0;
@@ -235,27 +248,25 @@ template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h
         if (!gsl_finite(v[i])) {
             continue;
         }
-#define DOGUESS \
-        { \
-            Number _t0 = t[0]; \
-            t[0] = guess; \
-            guessChanged(guess); \
-            bool ok = propernewton(g, h, tv, t[0], guessChanged) && (qAbs(guess - t[0]) < maxdelta) && t[0] >= 0 && t[0] <= 1; \
-            guess = t[0]; \
-            t[0] = _t0; \
-            if (ok) { \
-                return true; \
-            } \
-        }
-        if (w[i] < epsilon && w[i] > -epsilon) {
-            guess = v[i];
-            DOGUESS
-        }
+        bool go = true;
         if (v[i]*v[last] < 0) {
             guess = (t[i]+t[last])/2;
-            DOGUESS
+        } else if (w[i] < bigepsilon && w[i] > -bigepsilon) {
+            guess = t[i];
+        } else {
+            go = false;
         }
-#undef DOGUESS
+        if (go) {
+            Number _t0 = t[0];
+            t[0] = guess;
+            guessChanged(guess);
+            bool ok = halley(g, h, j, tv, t[0], guessChanged) && (qAbs(guess - t[0]) < maxdelta) && t[0] >= -epsilon && t[0] <= 1+epsilon;
+            guess = t[0];
+            t[0] = _t0;
+            if (ok) {
+                return true;
+            }
+        }
         last = i;
     }
     return false;
@@ -276,7 +287,7 @@ bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int py, int px, Vector
     dv[1] = _dv.y();
     dv[2] = _dv.z();
     Number guess = 0;
-    if (!superbrute(d_rayfunc, rayfunc[0], rayfunc[1], tv, te, sizeof(te)/sizeof(te[0]), guess, nullfunc())) {
+    if (!superbrute(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, nullfunc())) {
         return false;
     }
     Vector3D pt = ray.eval(guess);
@@ -332,7 +343,7 @@ QImage ImplicitGraph3D::diagnostics(const Transform3D& inv, int py, int px, Vect
         wt = ((wt+1)&7);
     });
     Number guess = 0;
-    if (superbrute(d_rayfunc, rayfunc[0], rayfunc[1], tv, te, sizeof(te)/sizeof(te[0]), guess, fcn)) {
+    if (superbrute(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, fcn)) {
         fcn(guess);
         qDebug() << "yey" << guess;
     } else {
