@@ -1,7 +1,10 @@
 #include "Grapher3D.h"
 
-#include <QPainter>
+#include <QCoreApplication>
 #include <QDebug>
+#include <QLabel>
+#include <QMouseEvent>
+#include <QPainter>
 #include <QTimer>
 
 #include "Graph3D.h"
@@ -13,12 +16,32 @@
 #include <xmmintrin.h>
 typedef __m128i v4si;
 
-Grapher3D::Grapher3D(QWidget* parent) : QWidget(parent), needsRedraw(false), redrawTimer(new QTimer(this)), showAxes(true) {
+Grapher3D::Grapher3D(QWidget* parent) : QWidget(parent), needsRedraw(false), redrawTimer(new QTimer(this)), showAxes(true), diagnostic(false) {
     redrawTimer->setInterval(1000 / 15);
     connect(redrawTimer, SIGNAL(timeout()), this, SLOT(scheduledUpdate()));
+    if (QCoreApplication::instance()->arguments().contains("--debug")) {
+        diagnostic = new QLabel();
+        diagnostic->setMinimumSize(QSize(400, 400));
+        diagnostic->setMaximumSize(diagnostic->minimumSize());
+    }
 }
 
 Grapher3D::~Grapher3D() {
+}
+
+void Grapher3D::mousePressEvent(QMouseEvent* event) {
+    if (diagnostic) {
+        foreach (Graph3D* graph, graphs) {
+            if (!graph) continue;
+            ImplicitGraph3D* g = dynamic_cast<ImplicitGraph3D*>(graph);
+            if (!g) continue;
+            bool inv;
+            diagnostic->setPixmap(g->diagnostics(transform.inverted(&inv), event->x(), event->y(), diagnostic->size()));
+            diagnostic->show();
+            return;
+        }
+    }
+    QWidget::mousePressEvent(event);
 }
 
 void Grapher3D::addGraph(QObject* id) {

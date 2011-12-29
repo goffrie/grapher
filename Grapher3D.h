@@ -11,6 +11,7 @@ class QPaintEvent;
 class QResizeEvent;
 class Graph3D;
 class QTimer;
+class QLabel;
 
 class Grapher3D : public QWidget {
     Q_OBJECT
@@ -20,6 +21,9 @@ class Grapher3D : public QWidget {
     bool needsRedraw;
     QTimer* redrawTimer;
     bool showAxes;
+    QLabel* diagnostic;
+protected:
+    virtual void mousePressEvent(QMouseEvent*);
 public:
     QMap<QObject*, Graph3D*> graphs;
     Grapher3D(QWidget* parent = NULL);

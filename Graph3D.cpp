@@ -3,9 +3,11 @@
 #include <QtConcurrentRun>
 #include <QtConcurrentMap>
 #include <QThreadStorage>
+#include <QPainter>
 
 #include <iostream>
 #include <functional>
+#include <cmath>
 
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
@@ -58,7 +60,14 @@ void Sphere::startThread() {
     emit updated();
 }
 
-ImplicitGraph3D::ImplicitGraph3D(QObject* parent): Graph3D(parent), tv(Variable::Id("t", Variable::Id::Vector, te)) {
+ImplicitGraph3D::ImplicitGraph3D(QObject* parent): Graph3D(parent), tv(Variable::Id("t", Variable::Id::Vector, te)),
+v1x(Variable::Id("v1x", Variable::Id::Constant, &v1[0])),
+v1y(Variable::Id("v1y", Variable::Id::Constant, &v1[1])),
+v1z(Variable::Id("v1z", Variable::Id::Constant, &v1[2])),
+dvx(Variable::Id("dvx", Variable::Id::Constant, &dv[0])),
+dvy(Variable::Id("dvy", Variable::Id::Constant, &dv[1])),
+dvz(Variable::Id("dvz", Variable::Id::Constant, &dv[2]))
+{
     constexpr int num = sizeof(te)/sizeof(te[0]);
     for (int i = 0; i < num; ++i) {
         te[i] = Number(i) / Number(num);
@@ -77,9 +86,9 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     z = _z;
     func = Sub::create(std::move(rel->a), std::move(rel->b))->simplify();
     Expression::Subst s;
-    EPtr ex = Variable::create(Variable::Id("v1x", Variable::Id::Constant, &v1[0])) + Variable::create(Variable::Id("dvx", Variable::Id::Constant, &dv[0])) * tv.ecopy();
-    EPtr ey = Variable::create(Variable::Id("v1y", Variable::Id::Constant, &v1[1])) + Variable::create(Variable::Id("dvy", Variable::Id::Constant, &dv[1])) * tv.ecopy();
-    EPtr ez = Variable::create(Variable::Id("v1z", Variable::Id::Constant, &v1[2])) + Variable::create(Variable::Id("dvz", Variable::Id::Constant, &dv[2])) * tv.ecopy();
+    EPtr ex = v1x.ecopy() + dvx.ecopy() * tv.ecopy();
+    EPtr ey = v1y.ecopy() + dvy.ecopy() * tv.ecopy();
+    EPtr ez = v1z.ecopy() + dvz.ecopy() * tv.ecopy();
     s.insert(std::make_pair(x, &*ex));
     s.insert(std::make_pair(y, &*ey));
     s.insert(std::make_pair(z, &*ez));
@@ -115,7 +124,7 @@ void ImplicitGraph3D::restart() {
         std::unique_ptr<int[]> opt(new int[m_width]);
         std::size_t num = 0;
         for (int X = 0; X < m_width; ++X) {
-            if (renderPoint(inv, Y, X, &ox[num], &oy[num], &oz[num])) {
+            if (renderPoint(inv, X, Y, &ox[num], &oy[num], &oz[num])) {
                 opt[num] = m_width*Y+X;
                 ++num;
             }
@@ -213,37 +222,57 @@ inline bool rayAtPoint(const Transform3D& inv, const Vector3D& eyeray, float y, 
     return true;
 }
 
-constexpr Number epsilon = 1.f / (1<<14);
-constexpr Number bigepsilon = 1.f / (1<<8);
+constexpr Number epsilon = 1.f / (1<<8);
+constexpr Number bigepsilon = 1.f / (1<<4);
 
 inline bool zero(float n) { return !(n > epsilon || n < -epsilon); }
+inline bool zero_wrt(float n, float d) {
+    return zero(n / (std::fabs(d)+1));
+}
 
 template<typename T> bool newton(const EPtr& f, const EPtr& g, const Variable& tv, Number& guess, T& guessChanged) {
     int iterations = 10;
+    float d;
     while (iterations--) {
-        guess -= f->evaluate()/g->evaluate();
+        guess -= (d = f->evaluate())/g->evaluate();
         guessChanged(guess);
     }
     Number v = f->evaluate();
-    return gsl_finite(guess) && gsl_finite(v) && zero(v);
+    return gsl_finite(guess) && gsl_finite(v) && zero_wrt(v, d);
 }
 
-template<typename T> bool halley(const EPtr& f, const EPtr& g, const EPtr& h, const Variable& tv, Number& guess, T& guessChanged) {
+template<bool diag, typename T> bool halley(const EPtr& f, const EPtr& g, const EPtr& h, const Variable& tv, Number& guess, T& guessChanged) {
     int iterations = 5;
+    float G;
     while (iterations--) {
-        Number F = f->evaluate(), G = g->evaluate(), H = h->evaluate();
+        Number F = f->evaluate(), H = h->evaluate();
+        G = g->evaluate();
         guess -= F * G / (G * G - 0.5f * F * H);
         guessChanged(guess);
     }
     Number v = f->evaluate();
-    return gsl_finite(guess) && gsl_finite(v) && zero(v);
+    if (gsl_finite(guess)) {
+        if (gsl_finite(v)) {
+            if (zero_wrt(v, G)) {
+                return true;
+            } else if (diag) {
+                float e = epsilon * (std::fabs(G)+1);
+                qDebug() << "Rejected" << guess << "for f(t) =" << v << "being outside of [" << -e << "," << e << "]";
+            }
+        } else if (diag) {
+            qDebug() << "Rejected" << guess << "for f(t) =" << v << "being non-finite";
+        }
+    } else if (diag) {
+        qDebug() << "Rejected non-finite guess" << guess;
+    }
+    return false;
 }
 
-template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h, const EPtr& j, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
+template<bool diag = false, typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h, const EPtr& j, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
     UVector v(f->evaluateVector(size));
     UVector w(g->evaluateVector(size));
     int last = 0;
-    const float maxdelta = 2.f / size;
+    const float maxdelta = 10.f / size;
     for (int i = 0; i < size; ++i) {
         if (!gsl_finite(v[i])) {
             continue;
@@ -260,7 +289,18 @@ template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h
             Number _t0 = t[0];
             t[0] = guess;
             guessChanged(guess);
-            bool ok = halley(g, h, j, tv, t[0], guessChanged) && (qAbs(guess - t[0]) < maxdelta) && t[0] >= -epsilon && t[0] <= 1+epsilon;
+            bool ok = false;
+            if (halley<diag>(g, h, j, tv, t[0], guessChanged)) {
+                if (qAbs(guess - t[0]) < maxdelta) {
+                    if (t[0] >= -epsilon && t[0] <= 1+epsilon) {
+                        ok = true;
+                    } else if (diag) {
+                        qDebug() << "Rejected" << t[0] << "for being outside of [0, 1]";
+                    }
+                } else if (diag) {
+                    qDebug() << "Rejected" << t[0] << "for being too far from initial guess" << guess;
+                }
+            }
             guess = t[0];
             t[0] = _t0;
             if (ok) {
@@ -274,7 +314,7 @@ template<typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h
 
 struct nullfunc { void operator()(...) { } };
 
-bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz) {
+bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector ox, Vector oy, Vector oz) {
     Ray ray;
     if (!rayAtPoint(inv, m_eyeray, py, px, m_boxa, m_boxb, ray)) {
         return false;
@@ -297,13 +337,32 @@ bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int py, int px, Vector
     return true;
 }
 
-QImage ImplicitGraph3D::diagnostics(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz, QSize size) {
+inline void analyze(Vector data, int size, float& mean, float& stdev) {
+    mean = 0;
+    float factor = 1.f / size;
+    for (int i = 0; i < size; ++i) {
+        mean += data[i] * factor;
+    }
+    stdev = 0;
+    for (int i = 0; i < size; ++i) {
+        float resid = data[i] - mean;
+        stdev += resid * resid * factor;
+    }
+    stdev = std::sqrt(stdev);
+}
+
+QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSize size) {
+    QPixmap result(size);
+    result.fill(Qt::white);
     Ray ray;
     if (!rayAtPoint(inv, m_eyeray, py, px, m_boxa, m_boxb, ray)) {
-        return QImage();
+        return result;
     }
-    QImage result(size, QImage::Format_RGB32);
-    result.fill(Qt::white);
+    QPainter painter(&result);
+    painter.fillRect(10, 10, 10, 10, Qt::blue);
+    painter.scale(1, -1);
+    painter.translate(1, -size.height()+1);
+    painter.fillRect(10, 10, 10, 10, Qt::black);
     v1[0] = ray.a.x();
     v1[1] = ray.a.y();
     v1[2] = ray.a.z();
@@ -311,43 +370,90 @@ QImage ImplicitGraph3D::diagnostics(const Transform3D& inv, int py, int px, Vect
     dv[0] = _dv.x();
     dv[1] = _dv.y();
     dv[2] = _dv.z();
-    int diagw = size.width(), diagh = size.height();
+    {
+        int diagw = size.width() - 2, diagh = size.height() - 2;
+        painter.scale(diagw, diagh);
+    }
     constexpr int tesize = sizeof(te)/sizeof(te[0]);
-    std::cerr << rayfunc[0]->toString() << std::endl;
-    for (int i = 0; i < 3; ++i) {
-        std::cerr << &v1[i] << ':' << v1[i] << std::endl;
-    }
-    for (int i = 0; i < 3; ++i) {
-        std::cerr << &dv[i] << ':' << dv[i] << std::endl;
-    }
+    Expression::Subst s;
+    Constant _v1x(v1[0]);
+    Constant _v1y(v1[1]);
+    Constant _v1z(v1[2]);
+    Constant _dvx(dv[0]);
+    Constant _dvy(dv[1]);
+    Constant _dvz(dv[2]);
+    s.insert(std::make_pair(v1x, &_v1x));
+    s.insert(std::make_pair(v1y, &_v1y));
+    s.insert(std::make_pair(v1z, &_v1z));
+    s.insert(std::make_pair(dvx, &_dvx));
+    s.insert(std::make_pair(dvy, &_dvy));
+    s.insert(std::make_pair(dvz, &_dvz));
+    std::cerr << rayfunc[0]->substitute(s)->toString() << std::endl;
     UVector f(rayfunc[0]->evaluateVector(tesize));
     UVector g(d_rayfunc->evaluateVector(tesize));
-    float min = f[0], max = f[0];
-    for (int i = 1; i < tesize; ++i) {
-        min = qMin(min, f[i]);
-        max = qMax(max, f[i]);
+    {
+        float mean, stdev;
+        analyze(f.get(), tesize, mean, stdev);
+        float min = mean - stdev, max = mean + stdev;
+        max = qMax(qAbs(max), qAbs(min));
+        min = -max;
+        painter.save();
+        painter.scale(1, 1/(max-min));
+        painter.translate(0, -min);
+        painter.setPen(Qt::black);
+        painter.drawLine(0, 0, 1, 0);
+        painter.setPen(QColor(0, 0, 255));
+        QPointF lastPoint(0, GSL_NAN);
+        for (int i = 0; i < tesize; ++i) {
+            QPointF newPoint(te[i], f[i]);
+            if (gsl_finite(lastPoint.y())) {
+                painter.drawLine(lastPoint, newPoint);
+            } else {
+                painter.drawPoint(newPoint);
+            }
+            lastPoint = newPoint;
+        }
+//        result.setPixel(i*diagw/tesize, diagh-((f[i]-min)*diagh/(max-min)));
+        painter.restore();
     }
-    for (int i = 0; i < tesize; ++i) {
-        result.setPixel(i*diagw/tesize, diagh-((-min)*diagh/(max-min)), qRgba(0, 0, 0, 255));
-    }
-    for (int i = 0; i < tesize; ++i) {
-        result.setPixel(i*diagw/tesize, diagh-((f[i]-min)*diagh/(max-min)), qRgba(0, 0, 255, 255));
-        result.setPixel(i*diagw/tesize, diagh-((g[i]-min)*diagh/(max-min)), qRgba(100, 100, 100, 255));
+    {
+        float mean, stdev;
+        analyze(g.get(), tesize, mean, stdev);
+        float min = mean - stdev, max = mean + stdev;
+        max = qMax(qAbs(max), qAbs(min));
+        min = -max;
+        painter.save();
+        painter.setPen(QColor(100, 100, 100));
+        QPointF lastPoint(0, GSL_NAN);
+        for (int i = 0; i < tesize; ++i) {
+            QPointF newPoint(te[i], g[i]);
+            if (gsl_finite(lastPoint.y())) {
+                painter.drawLine(lastPoint, newPoint);
+            } else {
+                painter.drawPoint(newPoint);
+            }
+            lastPoint = newPoint;
+        }
+//        result.setPixel(i*diagw/tesize, diagh-((g[i]-min)*diagh/(max-min)));
+        painter.restore();
     }
     int wt = 0;
-    auto fcn = std::function<void(float)>([&result,diagw,diagh,&wt](float g)->void{
+    painter.setPen(QColor(0, 255, 0, 100));
+    auto fcn = std::function<void(float)>([&painter,&wt](float g)->void{
         qDebug() << g;
-        for (int yoy = wt; yoy < diagh; yoy += 8) {
+        painter.drawLine(QPointF(g, 0), QPointF(g, 1));
+/*        for (int yoy = wt; yoy < diagh; yoy += 8) {
             result.setPixel(g*diagw, yoy, qRgba(0, 255, 0, 255));
-        }
+        }*/
         wt = ((wt+1)&7);
     });
     Number guess = 0;
-    if (superbrute(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, fcn)) {
+    if (superbrute<true>(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, fcn)) {
         fcn(guess);
         qDebug() << "yey" << guess;
     } else {
         qDebug() << "not okay" << guess;
     }
+    painter.end();
     return result;
 }

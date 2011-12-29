@@ -8,6 +8,7 @@
 
 #include <QColor>
 #include <QFuture>
+#include <QPixmap>
 
 class Graph3D : public Graph {
     Q_OBJECT
@@ -35,10 +36,10 @@ protected:
 class ImplicitGraph3D : public Graph3D {
     Q_OBJECT
 private:
-    Variable x, y, z, tv;
+    Variable x, y, z, tv, v1x, v1y, v1z, dvx, dvy, dvz;
     EPtr func;
     float v1[3], dv[3];
-    float te[128] __attribute__((aligned(16)));
+    float te[256] __attribute__((aligned(16)));
     EPtr rayfunc[3];
     EPtr d_rayfunc;
     EPtr dx, dy, dz;
@@ -50,14 +51,14 @@ private:
 public:
     ImplicitGraph3D(QObject* parent = 0);
     void reset(std::unique_ptr<Equation> rel, const Variable& x, const Variable& y, const Variable& z);
+    QPixmap diagnostics(const Transform3D& inv, int px, int py, QSize size);
 protected:
     virtual void cancel();
     virtual void startThread();
     void restart();
 
     void renderLine(const Transform3D& inv, int y);
-    bool renderPoint(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz);
-    QImage diagnostics(const Transform3D& inv, int py, int px, Vector ox, Vector oy, Vector oz, QSize size);
+    bool renderPoint(const Transform3D& inv, int px, int py, Vector ox, Vector oy, Vector oz);
 };
 
 #endif
