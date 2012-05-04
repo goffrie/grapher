@@ -86,12 +86,12 @@ void InequalityGraph::restart() {
     Number ystep = (top - bottom) / m_height;
     QImage _img(m_width, m_height, QImage::Format_ARGB32_Premultiplied);
     QRgb fill = qRgba(m_color.red(), m_color.green(), m_color.blue(), 255);
-    std::function<void(int)> function([this, left, top, xstep, ystep, m_width, m_height, &_img, fill](int y) -> void {
+	std::function<void(int)> function([this, left, top, xstep, ystep, &_img, fill](int line) -> void {
         if (this->cancelled) return;
-        VectorR px = reinterpret_cast<VectorR>(alloca(sizeof(Number) * m_width));
+        VectorR px = reinterpret_cast<VectorR>(alloca(sizeof(Number) * this->m_width));
         {
             Number _x = left;
-            for (int x = 0; x < m_width; ++x) {
+            for (int x = 0; x < this->m_width; ++x) {
                 px[x] = _x;
                 _x += xstep;
             }
@@ -99,14 +99,14 @@ void InequalityGraph::restart() {
         if (this->cancelled) return;
         Expression::Subst s;
         Variable X(Variable::Id("X", Variable::Id::Vector, px));
-        Constant Y(top - y * ystep);
+        Constant Y(top - line * ystep);
         s.insert(std::make_pair(this->x, &X));
         s.insert(std::make_pair(this->y, &Y));
         UVector result(this->rel->substitute(s)->evaluateVector(m_width));
         if (this->cancelled) return;
         typedef QRgb* __restrict QRgbR;
-        QRgbR p = reinterpret_cast<QRgb*>(_img.scanLine(y));
-        for (int x = 0; x < m_width; ++x) {
+        QRgbR p = reinterpret_cast<QRgb*>(_img.scanLine(line));
+        for (int x = 0; x < this->m_width; ++x) {
             *p++ = result[x] ? fill : 0u;
         }
     });

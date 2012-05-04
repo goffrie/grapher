@@ -37,7 +37,7 @@ protected:
 
     std::unique_ptr<Inequality> rel;
     Variable x, y;
-    
+
     QFuture<void> future;
     QImage m_img;
     QMutex img_mutex;
@@ -65,12 +65,12 @@ protected slots:
 
 class ImplicitGraph : public IteratingGraph {
     Q_OBJECT
-    
+
     Variable x, y;
     std::unique_ptr<Expression> eqn, dx, dy;
     UVector m_px, m_py;
     std::size_t numPts;
-    
+
     QImage iterate();
     void resubstitute();
     QImage draw();
@@ -85,7 +85,7 @@ protected slots:
 
 class ParametricGraph : public IteratingGraph {
     Q_OBJECT
-    
+
     Variable t;
     Number tMin, tMax;
     std::unique_ptr<Expression> x, y;

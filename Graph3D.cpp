@@ -5,12 +5,15 @@
 #include <QThreadStorage>
 #include <QPainter>
 
+#include <iomanip>
 #include <iostream>
 #include <functional>
 #include <cmath>
+#include <cstring>
 
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
+#include <complex>
 
 Graph3D::Graph3D(QObject* parent) : Graph(parent) {
 
@@ -93,6 +96,9 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     s.insert(std::make_pair(y, &*ey));
     s.insert(std::make_pair(z, &*ez));
     rayfunc[0] = func->substitute(s)->simplify();
+    if (rayfunc[0]->polynomial(tv)) {
+        polyrayfunc = rayfunc[0]->expand()->facsum(tv);
+    }
     rayfunc[1] = rayfunc[0]->derivative(tv)->simplify();
     rayfunc[2] = rayfunc[1]->derivative(tv)->simplify();
     d_rayfunc = (rayfunc[0]->ecopy() / rayfunc[1]->ecopy())->simplify();
@@ -225,7 +231,7 @@ inline bool rayAtPoint(const Transform3D& inv, const Vector3D& eyeray, float y, 
 constexpr Number epsilon = 1.f / (1<<8);
 constexpr Number bigepsilon = 1.f / (1<<4);
 
-inline bool zero(float n) { return !(n > epsilon || n < -epsilon); }
+template<typename F> bool zero(F n) { return !(n > epsilon || n < -epsilon); }
 inline bool zero_wrt(float n, float d) {
     return zero(n / (std::fabs(d)+1));
 }
@@ -312,6 +318,105 @@ template<bool diag = false, typename T> bool superbrute(const EPtr& f, const EPt
     return false;
 }
 
+struct Poly {
+    int degree;
+    double* coeff;
+    Poly(Polynomial* poly) {
+        degree = poly->degree();
+        coeff = new double[degree];
+        for (int i = degree; i--; ) {
+            coeff[i] = poly->right->evaluate();
+            poly = poly->left.get();
+            Q_ASSERT(poly);
+        }
+        double factor = 1. / poly->right->evaluate();
+        for (int i = degree; i--; ) {
+            coeff[i] *= factor;
+        }
+    }
+    ~Poly() {
+        delete coeff;
+    }
+    template<typename T> std::complex<T> evaluate(std::complex<T> x) {
+        if (degree == 0) return x;
+        std::complex<T> r = x + coeff[0];
+        for (int i = 1; i < degree; ++i) {
+            r *= x;
+            r += coeff[i];
+        }
+        return r;
+    }
+};
+std::ostream& operator<<(std::ostream& s, const Poly& p) {
+    s << "x^" << p.degree;
+    for (int i = 0; i < p.degree; ++i) {
+        s << std::setprecision(14) << " + " << p.coeff[i];
+        if (p.degree-i-1 > 0) s << "*x";
+        if (p.degree-i-1 > 1) s << '^' << (p.degree-i-1);
+    }
+    return s;
+}
+
+template<bool diag = false, typename T>
+std::complex<double>* durandkerner(const std::unique_ptr<Polynomial>& _poly, int& degree, T rootChanged) {
+    Poly poly(_poly.get());
+    if (diag) std::cerr << poly << std::endl;
+    degree = poly.degree;
+    if (degree == 1) {
+        std::complex<double>* r = new std::complex<double>[1];
+        *r = -poly.coeff[0];
+        return r;
+    }
+    std::complex<double>* roots = new std::complex<double>[degree];
+    constexpr std::complex<double> startbase(0.6, 0.94);
+    roots[0] = 1.;
+    for (int i = 1; i < degree; ++i) {
+        roots[i] = roots[i-1] * startbase;
+    }
+    int maxiterations = 30;
+    bool repeat = true;
+    while (repeat && maxiterations--) {
+        repeat = false;
+        for (int i = 0; i < degree; ++i) {
+            std::complex<double> denom;
+            bool first = true;
+            for (int j = 0; j < degree; ++j) { if (i == j) continue;
+                if (first) {
+                    denom = roots[i] - roots[j];
+                    first = false;
+                } else {
+                    denom *= roots[i] - roots[j];
+                }
+            }
+            std::complex<double> adjust = poly.evaluate(roots[i]) / denom;
+            if (norm(adjust) > 0.00001) repeat = true;
+            roots[i] -= adjust;
+            if (diag) std::cerr << roots[i] << ' ';
+            rootChanged(roots[i].real());
+        }
+        if (diag) std::cerr << std::endl;
+    }
+    return roots;
+}
+
+template<bool diag = false, typename T>
+bool polyroot(const std::unique_ptr<Polynomial>& poly, float& root, T rootChanged) {
+    int degree;
+    std::complex<double>* croots = durandkerner<diag>(poly, degree, rootChanged);
+    bool ok = false;
+    for (int i = 0; i < degree; ++i) {
+        if (zero(croots[i].imag())) {
+            float r = croots[i].real();
+            if (gsl_finite(r) && r >= -epsilon && r <= 1+epsilon && (!ok || r < root)) {
+                root = r;
+                ok = true;
+            }
+        }
+    }
+    delete[] croots;
+    return ok;
+}
+
 struct nullfunc { void operator()(...) { } };
 
 bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector ox, Vector oy, Vector oz) {
@@ -327,8 +432,14 @@ bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector
     dv[1] = _dv.y();
     dv[2] = _dv.z();
     Number guess = 0;
-    if (!superbrute(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, nullfunc())) {
-        return false;
+    if (polyrayfunc.get()) {
+        if (!polyroot(polyrayfunc, guess, nullfunc())) {
+            return false;
+        }
+    } else {
+        if (!superbrute(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, nullfunc())) {
+            return false;
+        }
     }
     Vector3D pt = ray.eval(guess);
     *ox = pt.x();
@@ -349,6 +460,14 @@ inline void analyze(Vector data, int size, float& mean, float& stdev) {
         stdev += resid * resid * factor;
     }
     stdev = std::sqrt(stdev);
+}
+inline void quartile(Vector data, int size, float& q1, float& q3) {
+    Vector v = VECTOR_ALLOC(size);
+    std::memcpy(v, data, sizeof(Number)*size);
+    std::sort(v, v+size);
+    q1 = v[size/4];
+    q3 = v[size*3/4];
+    VECTOR_FREE(v);
 }
 
 QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSize size) {
@@ -373,6 +492,8 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
     {
         int diagw = size.width() - 2, diagh = size.height() - 2;
         painter.scale(diagw, diagh);
+        painter.scale(1, 0.5);
+        painter.translate(0, 1);
     }
     constexpr int tesize = sizeof(te)/sizeof(te[0]);
     Expression::Subst s;
@@ -388,20 +509,32 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
     s.insert(std::make_pair(dvx, &_dvx));
     s.insert(std::make_pair(dvy, &_dvy));
     s.insert(std::make_pair(dvz, &_dvz));
-    std::cerr << rayfunc[0]->substitute(s)->toString() << std::endl;
+    {
+        EPtr p = rayfunc[0]->substitute(s);
+        std::cerr << p->toString() << std::endl << std::endl;
+        p = p->expand();
+        std::cerr << p->toString() << std::endl << std::endl;
+        p = p->facsum(tv);
+        std::cerr << p->toString() << std::endl << std::endl;
+    }
+    if (polyrayfunc.get()) {
+        std::cerr << polyrayfunc->toString() << std::endl << std::endl;
+        //std::cerr << polyrayfunc->substitute(s)->toString() << std::endl;
+        std::cerr << polyrayfunc->substitute(s)->facsum(tv)->toString() << std::endl;
+    }
     UVector f(rayfunc[0]->evaluateVector(tesize));
     UVector g(d_rayfunc->evaluateVector(tesize));
+    painter.setPen(Qt::black);
+    painter.drawLine(0, 0, 1, 0);
     {
-        float mean, stdev;
+        painter.save();
+/*        float mean, stdev;
         analyze(f.get(), tesize, mean, stdev);
         float min = mean - stdev, max = mean + stdev;
-        max = qMax(qAbs(max), qAbs(min));
-        min = -max;
-        painter.save();
-        painter.scale(1, 1/(max-min));
-        painter.translate(0, -min);
-        painter.setPen(Qt::black);
-        painter.drawLine(0, 0, 1, 0);
+        painter.scale(1, 1.f/qMax(qAbs(max), qAbs(min)));*/
+        float q1, q3;
+        quartile(f.get(), tesize, q1, q3);
+        painter.scale(1, 0.5f/qMin(qAbs(q1), qAbs(q3)));
         painter.setPen(QColor(0, 0, 255));
         QPointF lastPoint(0, GSL_NAN);
         for (int i = 0; i < tesize; ++i) {
@@ -417,12 +550,14 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         painter.restore();
     }
     {
-        float mean, stdev;
+        painter.save();
+/*        float mean, stdev;
         analyze(g.get(), tesize, mean, stdev);
         float min = mean - stdev, max = mean + stdev;
-        max = qMax(qAbs(max), qAbs(min));
-        min = -max;
-        painter.save();
+        painter.scale(1, 1.f/qMax(qAbs(max), qAbs(min)));*/
+        float q1, q3;
+        quartile(g.get(), tesize, q1, q3);
+        painter.scale(1, 0.5f/qMin(qAbs(q1), qAbs(q3)));
         painter.setPen(QColor(100, 100, 100));
         QPointF lastPoint(0, GSL_NAN);
         for (int i = 0; i < tesize; ++i) {
@@ -441,18 +576,26 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
     painter.setPen(QColor(0, 255, 0, 100));
     auto fcn = std::function<void(float)>([&painter,&wt](float g)->void{
         qDebug() << g;
-        painter.drawLine(QPointF(g, 0), QPointF(g, 1));
+        painter.drawLine(QPointF(g, -1), QPointF(g, 1));
 /*        for (int yoy = wt; yoy < diagh; yoy += 8) {
             result.setPixel(g*diagw, yoy, qRgba(0, 255, 0, 255));
         }*/
         wt = ((wt+1)&7);
     });
     Number guess = 0;
-    if (superbrute<true>(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, fcn)) {
-        fcn(guess);
-        qDebug() << "yey" << guess;
+    if (polyrayfunc.get()) {
+        if (polyroot<true>(polyrayfunc, guess, fcn)) {
+            qDebug() << "yey" << guess;
+        } else {
+            qDebug() << "not okay" << guess;
+        }
     } else {
-        qDebug() << "not okay" << guess;
+        if (superbrute<true>(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, fcn)) {
+            fcn(guess);
+            qDebug() << "yey" << guess;
+        } else {
+            qDebug() << "not okay" << guess;
+        }
     }
     painter.end();
     return result;

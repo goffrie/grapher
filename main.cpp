@@ -10,6 +10,9 @@
 #include "MainWindow.h"
 #include "Render3D.h"
 
+#include "Parser.h"
+#include "dynamic_unique_cast.h"
+
 int main(int argc, char *argv[]) {
     gsl_set_error_handler_off();
 
@@ -18,6 +21,31 @@ int main(int argc, char *argv[]) {
     qRegisterMetaType<Variable>();
     qRegisterMetaType<Vector3D>();
     qRegisterMetaType<Transform3D>();
+
+    std::unordered_map<std::string, Expression*> vars;
+    Variable x("x"), y("y"), z("z"), t("t");
+    vars.insert(std::make_pair(std::string("x"), &x));
+    vars.insert(std::make_pair(std::string("y"), &y));
+    vars.insert(std::make_pair(std::string("z"), &z));
+    vars.insert(std::make_pair(std::string("t"), &t));
+    while (false) {
+        try {
+            std::string s = "t * t ^ 3";
+            //std::getline(std::cin, s);
+            std::unique_ptr<Thing> p = Parser::parse(s, vars);
+            std::cout << p->toString() << std::endl;
+            EPtr q = dynamic_unique_cast<Expression>(std::move(p));
+            if (q.get()) {
+                q = q->expand();
+                std::cout << q->toString() << std::endl;
+                q = q->facsum(t);
+                std::cout << q->toString() << std::endl;
+            }
+        } catch (std::exception& e) {
+            std::cerr << e.what() << std::endl;
+        }
+        return 0;
+    }
 
     MainWindow* window = new MainWindow();
     window->show();

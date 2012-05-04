@@ -3,54 +3,13 @@
 #include <QVector2D>
 
 #include <cstring>
-#include <mmintrin.h>
-#include <emmintrin.h>
-#include <xmmintrin.h>
-
-#ifdef __SSE3__
-#include <pmmintrin.h>
-#endif
 
 #include <gsl/gsl_math.h>
 
-typedef __m128 v4sf;
-
-const float Transform3D::identity[16] = {
-1.f, 0.f, 0.f, 0.f,
-0.f, 1.f, 0.f, 0.f,
-0.f, 0.f, 1.f, 0.f,
-0.f, 0.f, 0.f, 1.f };
-
-#ifdef __SSE3__
-Vector3D Vector3D::normalized() const {
-    v4sfi vv = { v.v * v.v }; // { x*x, y*y, z*z, 1 }
-    vv.m[3] = 0; // { x*x, y*y, z*z, 0 }
-    v4sf hv = _mm_hadd_ps(vv.v, vv.v); // {x*x + y*y, z*z + 0} x 2
-    v4sf nv = _mm_hadd_ps(hv, hv); // {x*x + y*y + z*z} x 4
-    v4sf invsqrtnv = _mm_rsqrt_ps(nv);
-    const static v4sf half = {0.5f, 0.5f, 0.5f, 0.5f};
-    const static v4sf threehalf = {1.5f, 1.5f, 1.5f, 1.5f};
-    v4sf halfnv = half * nv;
-    invsqrtnv *= threehalf - (halfnv * invsqrtnv * invsqrtnv);
-    invsqrtnv *= threehalf - (halfnv * invsqrtnv * invsqrtnv);
-    Vector3D ret(v.v * invsqrtnv);
-    ret.v.m[3] = 1.f;
-    return ret;
-}
-#else
-Vector3D Vector3D::normalized() const {
-    v4sf nv = dot4(v.v, v.v); // {x*x + y*y + z*z} x 4
-    v4sf invsqrtnv = _mm_rsqrt_ps(nv);
-    const static v4sf half = {0.5f, 0.5f, 0.5f, 0.5f};
-    const static v4sf threehalf = {1.5f, 1.5f, 1.5f, 1.5f};
-    v4sf halfnv = half * nv;
-    invsqrtnv *= threehalf - (halfnv * invsqrtnv * invsqrtnv);
-    invsqrtnv *= threehalf - (halfnv * invsqrtnv * invsqrtnv);
-    Vector3D ret(v.v * invsqrtnv);
-    ret.v.m[3] = 1.f;
-    return ret;
-}
-#endif
+union v4sii {
+    __m64 v;
+    int16_t m[4];
+};
 
 Transform3D::Transform3D(const float* f) {
     std::memcpy(rows, f, sizeof(float)*16);
@@ -357,7 +316,7 @@ void Buffer3D::setPixel(const Vector3D& p, QRgb c) {
     const std::size_t idx = y * m_width + x;
     if (z < m_zbuffer[idx]) return;
     m_zbuffer[idx] = z;
-    m_pixels[idx] = c;
+    m_pixels[idx] = c | 0xff000000;
 }
 
 void Buffer3D::drawTransformLine(const Vector3D& p1, const Vector3D& p2, QRgb c) {
@@ -392,15 +351,14 @@ void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& 
     const v4sf nd_ld_part = haddps(nn, ll); // { nn[0] + nn[1], nn[2] + nn[3], ll[0] + ll[1], ll[2] + ll[3] }
     const v4sf nld_part = haddps(nl, nl); // { nl[0] + nl[1], nl[2] + nl[3], nl[0] + nl[1], nl[2] + nl[3] }
     const v4sf cf = _mm_cvtpu8_ps(_mm_cvtsi32_si64(c));
-    const v4sfi nd_ld_nld = { haddps(nd_ld_part, nld_part) }; // { n * n, l * l, n * l, n * l }
-    const v4sfi rcps_nd_ld_nld = { _mm_rsqrt_ps(nd_ld_nld.v) }; // { 1/|n|, 1/|l|, 1/sqrt(n*l), 1/sqrt(n*l) }
+    const v4sf nd_ld_nld = haddps(nd_ld_part, nld_part); // { n * n, l * l, n * l, n * l }
+    const v4sf rcps_nd_ld_nld = _mm_rsqrt_ps(nd_ld_nld); // { 1/|n|, 1/|l|, 1/sqrt(n*l), 1/sqrt(n*l) }
     //const v4 rcp_nd_ld_nld = { _mm_rcp_ps(nd_ld_nld.v) }; // { 1/|n|, 1/|l|, 1/sqrt(n*l), 1/sqrt(n*l) }
-    const float lighting = std::abs(rcps_nd_ld_nld.m[0] * rcps_nd_ld_nld.m[1] * nd_ld_nld.m[2]);
+    const float lighting = std::abs(rcps_nd_ld_nld[0] * rcps_nd_ld_nld[1] * nd_ld_nld[2]);
     const v4sf vlighting = { lighting, lighting, lighting, 1 };
     const v4sf litc = vlighting * cf;
-    const __m64 litcw = _mm_cvtps_pi16(litc);
-    const __m64 litcb = _mm_packs_pu16(litcw, litcw);
-    m_pixels[idx] = (QRgb) _mm_cvtsi64_si32(litcb);
+    const __v4si litcw = _mm_cvttps_epi32(litc);
+    m_pixels[idx] = qRgb(litcw[2], litcw[1], litcw[0]);
 }
 
 void Buffer3D::drawBuffer(int x, int y, const Buffer3D& buf) {

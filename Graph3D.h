@@ -41,6 +41,7 @@ private:
     float v1[3], dv[3];
     float te[256] __attribute__((aligned(16)));
     EPtr rayfunc[3];
+    std::unique_ptr<Polynomial> polyrayfunc;
     EPtr d_rayfunc;
     EPtr dx, dy, dz;
 

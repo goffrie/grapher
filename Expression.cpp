@@ -12,6 +12,36 @@
 #define V(a) (*reinterpret_cast<v4sf*>(a+i))
 
 #include <iostream>
+#include <sstream>
+#include <iomanip>
+
+// #define DEBUG_SIMPLIFY std::cerr << "simplifying at " << __LINE__ << ": " << toString() << std::endl;
+#define DEBUG_SIMPLIFY
+
+std::string tostr(float f) {
+    std::ostringstream o;
+    o << std::showpoint << std::setprecision(1) << f;
+    return o.str();
+}
+std::string tostr(int i) {
+    std::ostringstream o;
+    o << i;
+    return o.str();
+}
+
+std::string Constant::toString(int prec) const {
+    return wrap(prec, (c <= -0) ? Precedence::Mul : Precedence::Const, tostr(c));
+}
+
+std::string PowInt::toString(int prec) const {
+    return wrap(prec, Precedence::Pow, a->toString(Precedence::Pow+1) + " ^ " + tostr(b));
+}
+
+std::string PolyGamma::toString(int prec) const {
+    return wrap(prec, Precedence::Func, std::string("psi_") + tostr(b) + "(" + a->toString(-1) + ")");
+}
+
+
 
 Vector Constant::evaluateVector(size_t size) const {
     VectorR r = VECTOR_ALLOC(size);
@@ -191,6 +221,7 @@ Vector PolyGamma::evaluateVector(std::size_t size) const {
 }
 
 EPtr UnaryOp::simplify() const {
+    DEBUG_SIMPLIFY
     EPtr as = a->simplify();
     Constant* ac = dynamic_cast<Constant*>(as.get());
     if (ac != NULL) {
@@ -200,6 +231,7 @@ EPtr UnaryOp::simplify() const {
 }
 
 EPtr Neg::simplify() const {
+    DEBUG_SIMPLIFY
     EPtr as = a->simplify();
     Constant* ac = dynamic_cast<Constant*>(as.get());
     if (ac != NULL) {
@@ -217,6 +249,7 @@ EPtr Neg::simplify() const {
 }
 
 EPtr Add::simplify() const {
+    DEBUG_SIMPLIFY
     EPtr as = a->simplify();
     EPtr bs = b->simplify();
     Constant* ac = dynamic_cast<Constant*>(as.get());
@@ -252,6 +285,7 @@ EPtr Add::simplify() const {
 }
 
 EPtr Sub::simplify() const {
+    DEBUG_SIMPLIFY
     EPtr as = a->simplify();
     EPtr bs = b->simplify();
     Constant* ac = dynamic_cast<Constant*>(as.get());
@@ -287,6 +321,7 @@ EPtr Sub::simplify() const {
 }
 
 EPtr Mul::simplify() const {
+    DEBUG_SIMPLIFY
     EPtr as(a->simplify());
     EPtr bs(b->simplify());
     Constant* ac = dynamic_cast<Constant*>(as.get());
@@ -337,11 +372,27 @@ EPtr Mul::simplify() const {
     // a * (ba/bb) = (a * ba) / (bb)
     if (bd) {
         return ((std::move(as) * std::move(bd->a)) / std::move(bd->b))->simplify();
-    }  
+    }
+    
+    Mul* am = dynamic_cast<Mul*>(as.get());
+    Mul* bm = dynamic_cast<Mul*>(bs.get());
+    if (am && bm) {
+        Constant* amc = dynamic_cast<Constant*>(am->a.get());
+        Constant* bmc = dynamic_cast<Constant*>(bm->a.get());
+        // (a * x) * (b * y) = (a * b) * x * y
+        if (amc && bmc) {
+            return (Constant::create(amc->c * bmc->c) * (std::move(am->b) * std::move(bm->b)))->simplify();
+        }
+        if (bmc) { // move the constant to the left
+            return (std::move(bm->a) * std::move(as) * std::move(bm->b))->simplify();
+        }
+    }
+    if (bc && !ac) return std::move(bs) * std::move(as); // put the constant on the left
     return std::move(as) * std::move(bs);
 }
 
 EPtr Div::simplify() const {
+    DEBUG_SIMPLIFY
     EPtr as(a->simplify());
     EPtr bs(b->simplify());
     Constant* ac = dynamic_cast<Constant*>(as.get());
@@ -396,6 +447,7 @@ EPtr Div::simplify() const {
 }
 
 EPtr Pow::simplify() const {
+    DEBUG_SIMPLIFY
     EPtr as(a->simplify());
     EPtr bs(b->simplify());
     Constant* ac = dynamic_cast<Constant*>(as.get());
@@ -426,6 +478,7 @@ EPtr Pow::simplify() const {
 }
 
 EPtr PowInt::simplify() const {
+    DEBUG_SIMPLIFY
     EPtr as(a->simplify());
     Constant* ac = dynamic_cast<Constant*>(as.get());
     Number acc = ac ? ac->c : 0;
@@ -530,4 +583,349 @@ EPtr Gamma::derivative(const Variable& var) const {
 // dpsi_b(u)/dx = dpsi_b(u)/du * du/dx = psi_(b+1)(u) * du/dx
 EPtr PolyGamma::derivative(const Variable& var) const {
     return PolyGamma::create(a->ecopy(), b+1) * a->derivative(var);
+}
+
+bool Pow::polynomial(const Variable& var) const {
+    return a->polynomial(var) && dynamic_cast<Constant*>(b.get()); // maybe too strict
+}
+
+bool Div::polynomial(const Variable& var) const {
+    Constant* bc = dynamic_cast<Constant*>(b.get());
+    Variable* bv = dynamic_cast<Variable*>(b.get());
+    return a->polynomial(var) && (bc || (bv && *bv != var)); // perhaps try polynomial division
+}
+
+EPtr Neg::expand() const {
+    EPtr _a = a->expand();
+    Add* aa = dynamic_cast<Add*>(_a.get());
+    if (aa) {
+        return ((-std::move(aa->a)) + (-std::move(aa->b)))->expand();
+    }
+    return -std::move(_a);
+}
+
+EPtr PowInt::expand() const {
+    if (b < 0) return Constant::create(1) / (PowInt::create(a->ecopy(), -b))->expand();
+    if (b == 0) return Constant::create(1);
+    EPtr _a = a->expand();
+    if (b == 1) return _a;
+    Add* aa = dynamic_cast<Add*>(_a.get());
+    if (aa) {
+        EPtr ret = PowInt::create(aa->a->ecopy(), b);
+        for (int i = 1; i < b; ++i) {
+            ret = std::move(ret) + Constant::create(binom(b, i)) * PowInt::create(aa->a->ecopy(), b-i) * PowInt::create(aa->b->ecopy(), i);
+        }
+        ret = std::move(ret) + PowInt::create(aa->b->ecopy(), b);
+        return ret->expand();
+    }
+    Mul* am = dynamic_cast<Mul*>(_a.get());
+    if (am) {
+        return (PowInt::create(std::move(am->a), b) * PowInt::create(std::move(am->b), b))->expand();
+    }
+    Div* ad = dynamic_cast<Div*>(_a.get());
+    if (ad) {
+        return (PowInt::create(std::move(am->a), b) / PowInt::create(std::move(am->b), b))->expand();
+    }
+    Neg* an = dynamic_cast<Neg*>(_a.get());
+    if (an) {
+        if (b & 1) {
+            return -(PowInt::create(std::move(an->a), b)->expand());
+        } else {
+            return PowInt::create(std::move(an->a), b)->expand();
+        }
+    }
+    PowInt* api = dynamic_cast<PowInt*>(_a.get());
+    if (api) {
+        return PowInt::create(std::move(api->a), b*api->b)->expand();
+    }
+    Pow* ap = dynamic_cast<Pow*>(_a.get());
+    if (ap) {
+        return Pow::create(std::move(ap->a), Constant::create(b)*std::move(ap->b))->expand();
+    }
+    return PowInt::create(std::move(_a), b);
+}
+
+EPtr Add::expand() const {
+    return a->expand() + b->expand();
+}
+
+EPtr Sub::expand() const {
+    return a->expand() + (-b->ecopy())->expand();
+}
+
+EPtr Div::expand() const {
+    EPtr _a = a->expand();
+    EPtr _b = b->expand();
+    Constant* bc = dynamic_cast<Constant*>(_b.get());
+    Variable* bv = dynamic_cast<Variable*>(_b.get());
+    Add* aa = dynamic_cast<Add*>(_a.get());
+    if (((bc || bv) && aa)) {
+        EPtr _bcopy = _b->ecopy();
+        return ((std::move(aa->a) / std::move(_b)) + (std::move(aa->b) / std::move(_bcopy)))->expand();
+    } else {
+        return std::move(_a) / std::move(_b);
+    }
+}
+
+EPtr Mul::expand() const {
+    EPtr _a = a->expand();
+    EPtr _b = b->expand();
+    Add* a_add = dynamic_cast<Add*>(_a.get());
+    Add* b_add = dynamic_cast<Add*>(_b.get());
+    if (a_add && b_add) {
+        EPtr& aa = a_add->a;
+        EPtr& ab = a_add->b;
+        EPtr& ba = b_add->a;
+        EPtr& bb = b_add->b;
+        EPtr aa2 = aa->ecopy();
+        EPtr ab2 = ab->ecopy();
+        EPtr ba2 = ba->ecopy();
+        EPtr bb2 = bb->ecopy();
+        return (std::move(aa)*std::move(ba)+std::move(aa2)*std::move(bb)+std::move(ab)*std::move(ba2)+std::move(ab2)*std::move(bb2))->expand();
+    }
+    if (a_add) {
+        EPtr& aa = a_add->a;
+        EPtr& ab = a_add->b;
+        EPtr b2 = _b->ecopy();
+        return (std::move(aa)*std::move(_b)+std::move(ab)*std::move(b2))->expand();
+    }
+    if (b_add) {
+        EPtr& ba = b_add->a;
+        EPtr& bb = b_add->b;
+        EPtr a2 = _a->ecopy();
+        return (std::move(ba)*std::move(_a)+std::move(bb)*std::move(a2))->expand();
+    }
+    return std::move(_a) * std::move(_b);
+}
+
+std::unique_ptr<Polynomial> Expression::facsum(const Variable& var) const {
+    return Polynomial::create(var, simplify());
+}
+
+std::unique_ptr<Polynomial> Add::facsum(const Variable& var) const {
+    std::cerr << "ENTER Add::facsum(" << this << "): " << toString() << std::endl;
+    std::unique_ptr<Polynomial> _a = a->facsum(var);
+    std::unique_ptr<Polynomial> _b = b->facsum(var);
+    std::cerr << "Add::facsum: (" << _a->toString() << ") + (" << _b->toString() << ")" << std::endl;
+    if (_b->left.get()) {
+        if (_a->left.get()) {
+            _a->left = (std::move(_a->left) + std::move(_b->left))->facsum(var);
+        } else {
+            _a->left = std::move(_b->left);
+        }
+    }
+    _a->right = (std::move(_a->right) + std::move(_b->right))->simplify();
+    std::cerr << "LEAVE Add::facsum(" << this << "): " << toString() << " -> " << _a->toString() << std::endl;
+    return std::move(_a);
+}
+std::unique_ptr<Polynomial> Mul::facsum(const Variable& var) const {
+    std::cerr << "ENTER Mul::facsum(" << this << "): " << toString() << std::endl;
+    std::unique_ptr<Polynomial> _a = a->facsum(var);
+    std::unique_ptr<Polynomial> _b = b->facsum(var);
+    std::cerr << "Mul::facsum: (" << _a->toString() << ") * (" << _b->toString() << ")" << std::endl;
+    std::unique_ptr<Polynomial> ret;
+    if (_a->left.get() && _b->left.get()) {
+        EPtr aa = std::move(_a->left);
+        EPtr ab = std::move(_a->right);
+        EPtr ba = std::move(_b->left);
+        EPtr bb = std::move(_b->right);
+        // (aa*x+ab)(ba*x+bb) = (aa*ba)*x^2+(aa*bb+ab*ba)*x+(ab*bb)
+        std::cerr << "Mul::facsum(" << this << "): mid: ";
+        std::unique_ptr<Polynomial> mid = (aa->ecopy()*bb->ecopy()+ab->ecopy()*ba->ecopy())->facsum(var); // (aa*bb+ab*ba) = mid->left * x + mid->right
+        std::cerr << "Mul::facsum(" << this << "): left: ";
+        std::unique_ptr<Polynomial> left = (std::move(aa)*std::move(ba))->facsum(var); // aa*ba = left->left * x + left->right
+        if (mid->left.get()) {
+            left = (std::move(left) + std::move(mid->left))->facsum(var);
+            // nleft = left->left * x + (left->right + mid->left)
+        }
+        EPtr right = (std::move(ab)*std::move(bb))->simplify(); // (ab * bb) = right
+        // (aa*ba)x^2 + (aa*bb + ab*ba)*x + (ab*bb)
+        // = (left->left * x + left->right) * x^2 + (mid->left * x + mid->right) * x + right
+        // = left->left * x^3 + left->right * x^2 + mid->left * x^2 + mid->right * x + right
+        // = left->left * x^3 + (left->right + mid->left) * x^2 + mid->right * x + right
+        // = ((left->left * x + (left->right + mid->left)) * x + mid->right) * x + right
+        // = (nleft * x + mid->right) * x + right
+        ret = Polynomial::create(Polynomial::create(std::move(left), var, std::move(mid->right)), var, std::move(right));
+    } else if (_a->left.get()) {
+        // (aa*x+ab) * b = (aa * b) * x + (ab * b)
+        EPtr _b2 = _b->ecopy();
+        ret = Polynomial::create((std::move(_a->left) * std::move(_b))->facsum(var), var, (std::move(_a->right) * std::move(_b2))->simplify());
+    } else if (_b->left.get()) {
+        // (ba*x+bb) * a = (ba * a) * x + (bb * a)
+        EPtr _a2 = _a->ecopy();
+        ret = Polynomial::create((std::move(_b->left) * std::move(_a))->facsum(var), var, (std::move(_b->right) * std::move(_a2))->simplify());
+    } else {
+        ret = Polynomial::create(var, (std::move(_a) * std::move(_b))->simplify());
+    }
+    std::cerr << "LEAVE Mul::facsum(" << this << "): " << toString() << " -> " << ret->toString() << std::endl;
+    return std::move(ret);
+}
+std::unique_ptr<Polynomial> Div::facsum(const Variable& var) const {
+    std::unique_ptr<Polynomial> _a = a->facsum(var);
+    std::unique_ptr<Polynomial> _b = b->facsum(var);
+    if (_a->left.get()) {
+        if (_b->left.get()) {
+            // dang
+            return Polynomial::create(var, std::move(_a) / std::move(_b));
+        } else {
+            // (aa * x + ab) / bb = (aa / bb) * x + (ab / bb)
+            EPtr _b2 = _b->right->ecopy();
+            return Polynomial::create((std::move(_a->left) / std::move(_b->right))->facsum(var), var, (std::move(_a->right) / std::move(_b2))->simplify());
+        }
+    } else {
+        if (_b->left.get()) {
+            // dangdang
+            return Polynomial::create(var, (std::move(_a->right) / std::move(_b))->simplify());
+        } else {
+            return Polynomial::create(var, (std::move(_a->right) / std::move(_b->right))->simplify());
+        }
+    }
+}
+
+std::unique_ptr<Polynomial> Neg::facsum(const Variable& var) const {
+    std::unique_ptr<Polynomial> _a = a->facsum(var);
+    if (_a->left.get()) {
+        return Polynomial::create((-std::move(_a->left))->facsum(var), var, (-std::move(_a->right))->simplify());
+    } else {
+        return Polynomial::create(var, (-std::move(_a->right))->simplify());
+    }
+}
+
+std::unique_ptr<Polynomial> Variable::facsum(const Variable& var) const {
+    if (*this == var) {
+        return Polynomial::create(Polynomial::create(var, Constant::create(1)), var, Constant::create(0));
+    } else {
+        return Polynomial::create(var, ecopy());
+    }
+}
+
+std::unique_ptr<Polynomial> Polynomial::facsum(const Variable& _var) const {
+    if (var == _var) {
+        return std::unique_ptr<Polynomial>(copy());
+    } else {
+        return Polynomial::create(_var, ecopy());
+    }
+}
+
+std::unique_ptr<Polynomial> PowInt::facsum(const Variable& var) const {
+    if (b == 0) return Polynomial::create(var, Constant::create(1));
+    if (b == 1) return a->facsum(var);
+    Variable* _a = dynamic_cast<Variable*>(a.get());
+    if (b < 0 || !_a || *_a != var) return Polynomial::create(var, ecopy());
+    std::unique_ptr<Polynomial> r = _a->facsum(var);
+    for (int i = 1; i < b; ++i) r = Polynomial::create(std::move(r), var, Constant::create(0));
+    return std::move(r);
+}
+
+Polynomial* Polynomial::copy() const {
+    if (left.get())
+        return new Polynomial(std::unique_ptr<Polynomial>(left->copy()), var, right->ecopy());
+    else
+        return new Polynomial(var, right->ecopy());
+}
+
+EPtr Polynomial::derivative(const Variable& res) const {
+    if (!left.get()) {
+        if (res == var)
+            return Polynomial::create(var, right->derivative(var));
+        else
+            return right->derivative(res);
+    }
+    if (res != var) {
+        // d/dx (a * u + b) = da/dx * u + a * du/dx + db/dx
+        //     [du/dx == 0]
+        // = da/dx *u + db/dx
+        return Polynomial::create(left->derivative(res), var, right->derivative(res));
+    } else {
+        // d/dx (ax+b) = da/dx*x+dx/dx*a = da/dx*x+a
+        return Polynomial::create(left->derivative(var), var, left->ecopy());
+    }
+}
+
+Number Polynomial::evaluate() const {
+    if (!left.get()) return right->evaluate();
+    return left->evaluate() * var.evaluate() + right->evaluate();
+}
+
+Vector Polynomial::evaluateVector(std::size_t size) const {
+    if (!left.get()) return right->evaluateVector(size);
+    VectorR _l = left->evaluateVector(size);
+    switch (var.id->type) {
+        case Variable::Id::Constant: {
+            float _c = *var.id->p;
+            v4sf c = {_c, _c, _c, _c};
+            VECTOR_LOOP V(_l) *= c;
+            break;
+        }
+        case Variable::Id::Vector: {
+            VectorR c = var.id->p;
+            VECTOR_LOOP V(_l) *= V(c);
+            break;
+        }
+        default: throw var;
+    }
+    VectorR _r = right->evaluateVector(size);
+    VECTOR_LOOP V(_l) += V(_r);
+    VECTOR_FREE(_r);
+    return _l;
+}
+
+bool Polynomial::polynomial(const Variable& v) const {
+    if (left.get() && !left->polynomial(v)) return false;
+    return right->polynomial(v);
+}
+
+EPtr Polynomial::substitute(const Expression::Subst& s) const {
+    if (!left.get()) return Polynomial::create(var, right->substitute(s));
+    EPtr _v = var.substitute(s);
+    Variable* _vv = dynamic_cast<Variable*>(_v.get());
+    if (!_vv || *_vv != var) {
+        return left->substitute(s) * std::move(_v) + right->substitute(s);
+    } else {
+        return Polynomial::create(left->substitute(s), var, right->substitute(s));
+    }
+}
+
+void Polynomial::variables(std::set<Variable>& out) const {
+    if (left.get()) {
+        left->variables(out);
+        var.variables(out);
+    }
+    right->variables(out);
+}
+
+int Polynomial::degree() const {
+    return left.get() ? (left->degree() + 1) : 0;
+}
+
+EPtr Polynomial::create(EPtr l, const Variable& v, EPtr r) {
+    Polynomial* lp = dynamic_cast<Polynomial*>(l.get());
+    if (lp) {
+        l.release();
+        return Polynomial::create(std::unique_ptr<Polynomial>(lp), v, std::move(r));
+    } else {
+        return std::move(l) * v.ecopy() + std::move(r);
+    }
+}
+
+std::unique_ptr<Polynomial> Polynomial::create(std::unique_ptr<Polynomial> l, const Variable& v, EPtr r) {
+    return std::unique_ptr<Polynomial>(new Polynomial(std::move(l), v, std::move(r)));
+}
+
+std::unique_ptr<Polynomial> Polynomial::create(const Variable& v, EPtr r) {
+    return std::unique_ptr<Polynomial>(new Polynomial(v, std::move(r)));
+}
+
+EPtr Polynomial::simplify() const {
+    DEBUG_SIMPLIFY
+    if (!left.get()) return right->simplify();
+    return Expression::simplify();
+}
+
+std::string Polynomial::toString(int prec) const {
+    if (left.get()) {
+        return wrap(prec, Precedence::Add, left->toString(Precedence::Mul) + " * " + var.toString(Precedence::Mul) + " + " + right->toString(Precedence::Add));
+    } else {
+        return right->toString(prec);
+    }
 }

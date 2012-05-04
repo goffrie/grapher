@@ -38,4 +38,17 @@ inline qreal roundOneDigit(qreal n) {
     }
 }*/
 
+inline int binom(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    if (k > n - k) {
+        k = n - k;
+    }
+    int r = 1;
+    for (int i = 0; i < k; ++i) {
+        r *= n - k + i + 1;
+        r /= i + 1;
+    }
+    return r;
+}
+
 #endif
