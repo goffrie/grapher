@@ -331,7 +331,7 @@ void Buffer3D::drawLine(const Vector3D& p1, const Vector3D& p2, QRgb c) {
     }
 }
 
-void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& light, int idx) {
+void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& light, const Vector3D& eyeRay, int idx) {
     const Vector3D tp = m_transform * p;
     const int x = qRound(tp.x()), y = qRound(tp.y());
     const Number z = tp.z();
@@ -342,22 +342,40 @@ void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& 
     if (z < m_zbuffer[idx]) return;
     m_zbuffer[idx] = z;
     static const __v4si nmask = {-1,-1,-1,0};
-    const v4sf n = _mm_and_si128(normal.v, nmask);
+    static const v4sf neg = {-1.f,-1.f,-1.f,-1.f};
+    static const v4sf pos = {1.f,1.f,1.f,1.f};
+    const v4sf n = ((dot(eyeRay, normal) > 0) ? neg : pos) * _mm_and_si128(normal.v, nmask);
     const v4sf l = _mm_and_si128(light.v, nmask);
     const v4sf nn = n * n;
-    const v4sf ll = l * l;
     const v4sf nl = n * l;
-    const v4sf nd_ld_part = haddps(nn, ll); // { nn[0] + nn[1], nn[2] + nn[3], ll[0] + ll[1], ll[2] + ll[3] }
-    const v4sf nld_part = haddps(nl, nl); // { nl[0] + nl[1], nl[2] + nl[3], nl[0] + nl[1], nl[2] + nl[3] }
+    const v4sf nd_nld_part = haddps(nn, nl); // { nn[0] + nn[1], nn[2] (+ nn[3]), nl[0] + nl[1], nl[2] (+ nl[3]) }
     const v4sf cf = _mm_cvtpu8_ps(_mm_cvtsi32_si64(c));
-    const v4sf nd_ld_nld = haddps(nd_ld_part, nld_part); // { n * n, l * l, n * l, n * l }
-    const v4sf rcps_nd_ld_nld = _mm_rsqrt_ps(nd_ld_nld); // { 1/|n|, 1/|l|, 1/sqrt(n*l), 1/sqrt(n*l) }
-    //const v4 rcp_nd_ld_nld = { _mm_rcp_ps(nd_ld_nld.v) }; // { 1/|n|, 1/|l|, 1/sqrt(n*l), 1/sqrt(n*l) }
-    const float lighting = std::abs(rcps_nd_ld_nld[0] * rcps_nd_ld_nld[1] * nd_ld_nld[2]);
-    const v4sf vlighting = { lighting, lighting, lighting, 1 };
-    const v4sf litc = vlighting * cf;
-    const __v4si litcw = _mm_cvttps_epi32(litc);
-    m_pixels[idx] = qRgb(litcw[2], litcw[1], litcw[0]);
+    const v4sf nd_ld_nld = haddps(nd_nld_part, nd_nld_part); // { n * n, n * l, n * n, n * l }
+    const v4sf rcps_nd_ld_nld = _mm_rsqrt_ps(nd_ld_nld); // { 1/|n|, 1/sqrt(n*l), 1/|n|, 1/sqrt(n*l) }
+    float lighting = (rcps_nd_ld_nld[0] * nd_ld_nld[1]);
+    if (lighting < 0) {
+        m_pixels[idx] = qRgb(qRed(c) * 0.2, qGreen(c) * 0.2, qBlue(c) * 0.2);
+    } else {
+        lighting += 0.2;
+        if (lighting > 1) lighting = 1;
+        const v4sf vlighting = { lighting, lighting, lighting, 1 };
+        v4sf litc = vlighting * cf;
+        const float rmult = 2 * nd_ld_nld[1] / nd_ld_nld[0];
+        const v4sf rmult4 = {rmult, rmult, rmult, rmult};
+        const v4sf r = l - rmult4 * n;
+        const v4sf rv = r * eyeRay.v;
+        const v4sf rvd_part = haddps(rv, rv);
+        const v4sf rvd = haddps(rvd_part, rvd_part);
+        static const v4sf specbase = {200.f, 200.f, 200.f, 0.f};
+        if (rvd[0] > 0) {
+            const v4sf rvd2 = rvd * rvd;
+            litc += specbase * rvd2 * rvd2;
+        }
+        const __v4si litcw = _mm_cvttps_epi32(litc);
+        const __m128i litcw16 = _mm_packs_epi32(litcw, litcw);
+        const __v4si litcw8 = _mm_packus_epi16(litcw16, litcw16);
+        m_pixels[idx] = litcw8[0];//qRgb(litcw[2], litcw[1], litcw[0]);
+    }
 }
 
 void Buffer3D::drawBuffer(int x, int y, const Buffer3D& buf) {

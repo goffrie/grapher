@@ -111,7 +111,7 @@ public:
     void drawTransformPoint(const Vector3D& p, QRgb c);
     void drawTransformLine(const Vector3D& p1, const Vector3D& p2, QRgb c);
     // don't have to be unit vectors
-    void drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& l, int idx = -1);
+    void drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& light, const Vector3D& eyeRay, int idx = -1);
 
     void setPixel(const Vector3D& p, QRgb c);
     void drawLine(const Vector3D& p1, const Vector3D& p2, QRgb c);
