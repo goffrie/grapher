@@ -143,9 +143,11 @@ inline Transform3D Transform3D::scaler(qreal dx, qreal dy, qreal dz) {
 }
 
 #ifdef __SSE3__
-#define haddps(a, b) _mm_hadd_ps(a, b)
+inline __m128 __attribute__((__gnu_inline__, __always_inline__))
+haddps(__m128 a, __m128 b) { return _mm_hadd_ps(a, b); }
 #else
-#define haddps(a, b) (_mm_shuffle_ps(a, b, 0x88) + _mm_shuffle_ps(a, b, 0xDD))
+inline __m128 __attribute__((__gnu_inline__, __always_inline__))
+haddps(__m128 a, __m128 b) { return _mm_shuffle_ps(a, b, 0x88) + _mm_shuffle_ps(a, b, 0xDD); }
 #endif
 Vector3D operator*(const Transform3D& t, const Vector3D& v) {
     const v4sf a = t.rows[0] * v.v; // {t00 * v0, t01 * v1, t02 * v2, t03 * v3}
@@ -255,6 +257,10 @@ Buffer3D::Buffer3D() : m_width(0), m_height(0), m_pixels(NULL), m_zbuffer(NULL) 
 Buffer3D::Buffer3D(std::size_t w, std::size_t h, Transform3D transform) : m_width(w), m_height(h),
 m_pixels(new QRgb[w*h]), m_zbuffer(new Number[w*h]), m_transform(transform) {
     clear();
+    const v4sf dz = {0.f, 0.f, 1.f, 0.f};
+    bool invertible;
+    m_viewer = (m_transform.inverted(&invertible) * dz).normalized<6>();
+    Q_ASSERT(invertible);
 }
 
 Buffer3D::~Buffer3D() {
@@ -268,6 +274,10 @@ Buffer3D& Buffer3D::operator=(Buffer3D&& buf) {
     std::swap(m_pixels, buf.m_pixels);
     std::swap(m_zbuffer, buf.m_zbuffer);
     std::swap(m_transform, buf.m_transform);
+    std::swap(m_viewer, buf.m_viewer);
+    std::swap(m_light, buf.m_light);
+    std::swap(m_half, buf.m_half);
+    std::swap(m_colorf, buf.m_colorf);
     return *this;
 }
 
@@ -276,6 +286,9 @@ Buffer3D Buffer3D::copy() const {
     r.m_width = m_width;
     r.m_height = m_height;
     r.m_transform = m_transform;
+    r.m_viewer = m_viewer;
+    r.m_light = m_light;
+    r.m_half = m_half;
     const int size = m_width*m_height;
     r.m_pixels = new QRgb[size];
     r.m_zbuffer = new Number[size];
@@ -326,51 +339,53 @@ void Buffer3D::drawLine(const Vector3D& p1, const Vector3D& p2, QRgb c) {
     }
 }
 
-void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& light, const Vector3D& eyeRay, int idx) {
+void Buffer3D::setColor(QRgb c) {
+    m_colorf = _mm_cvtpu8_ps(_mm_cvtsi32_si64(c));
+}
+
+void Buffer3D::setLight(Vector3D light) {
+    m_light = light.normalized<6>();
+    m_half = (m_light + m_viewer).normalized<6>();
+    m_light.v[3] = 0.f;
+    m_half.v[3] = 0.f;
+}
+
+QDebug
+operator<<(QDebug d, v4sf f) {
+    d.nospace() << '(' << f[0] << ',' << f[1] << ',' << f[2] << ',' << f[3] << ')';
+    return d.space();
+}
+
+void Buffer3D::drawTransformLitPoint(Vector3D p, Vector3D normal, int idx) {
     const Vector3D tp = m_transform * p;
-    const int x = qRound(tp.x()), y = qRound(tp.y());
     const Number z = tp.z();
     if (idx == -1) {
+        const int x = qRound(tp.x()), y = qRound(tp.y());
         if (x < 0 || x >= m_width || y < 0 || y >= m_height) return;
         idx = y * m_width + x;
     }
     if (z < m_zbuffer[idx]) return;
     m_zbuffer[idx] = z;
     static const __v4si nmask = {-1,-1,-1,0};
-    static const v4sf neg = {-1.f,-1.f,-1.f,-1.f};
-    static const v4sf pos = {1.f,1.f,1.f,1.f};
-    const v4sf n = ((dot(eyeRay, normal) > 0) ? neg : pos) * _mm_and_si128(normal.v, nmask);
-    const v4sf l = _mm_and_si128(light.v, nmask);
-    const v4sf nn = n * n;
-    const v4sf nl = n * l;
-    const v4sf nd_nld_part = haddps(nn, nl); // { nn[0] + nn[1], nn[2] (+ nn[3]), nl[0] + nl[1], nl[2] (+ nl[3]) }
-    const v4sf cf = _mm_cvtpu8_ps(_mm_cvtsi32_si64(c));
-    const v4sf nd_ld_nld = haddps(nd_nld_part, nd_nld_part); // { n * n, n * l, n * n, n * l }
-    const v4sf rcps_nd_ld_nld = _mm_rsqrt_ps(nd_ld_nld); // { 1/|n|, 1/sqrt(n*l), 1/|n|, 1/sqrt(n*l) }
-    float lighting = (rcps_nd_ld_nld[0] * nd_ld_nld[1]);
-    if (lighting < 0) {
-        m_pixels[idx] = qRgb(qRed(c) * 0.2, qGreen(c) * 0.2, qBlue(c) * 0.2);
-    } else {
-        lighting += 0.2;
-        if (lighting > 1) lighting = 1;
-        const v4sf vlighting = { lighting, lighting, lighting, 1 };
-        v4sf litc = vlighting * cf;
-        const float rmult = 2 * nd_ld_nld[1] / nd_ld_nld[0];
-        const v4sf rmult4 = {rmult, rmult, rmult, rmult};
-        const v4sf r = l - rmult4 * n;
-        const v4sf rv = r * eyeRay.v;
-        const v4sf rvd_part = haddps(rv, rv);
-        const v4sf rvd = haddps(rvd_part, rvd_part);
-        static const v4sf specbase = {200.f, 200.f, 200.f, 0.f};
-        if (rvd[0] > 0) {
-            const v4sf rvd2 = rvd * rvd;
-            litc += specbase * rvd2 * rvd2;
-        }
-        const __v4si litcw = _mm_cvttps_epi32(litc);
-        const __m128i litcw16 = _mm_packs_epi32(litcw, litcw);
-        const __v4si litcw8 = _mm_packus_epi16(litcw16, litcw16);
-        m_pixels[idx] = litcw8[0];//qRgb(litcw[2], litcw[1], litcw[0]);
-    }
+    static const __v4si invneg = {1<<31-1,1<<31-1,1<<31-1,1<<31-1};
+    static const v4sf zero = {0.f,0.f,0.f,0.f};
+    v4sf n = _mm_and_si128(normal.v, nmask);
+    const v4sf _nlvhd = haddps(haddps(n * n, n * m_light.v), haddps(n * m_viewer.v, n * m_half.v)); // { n * n, n * l, n * v, n * h }
+    const v4sf rcps_nlvhd = _mm_rsqrt_ps(_nlvhd); // { 1/|n|, 1/sqrt(n*l), 1/sqrt(n*v), 1/sqrt(n*h) }
+    const v4sf nlvhd = _mm_xor_ps(_nlvhd, _mm_and_ps(_mm_cmplt_ps(_mm_shuffle_ps(_nlvhd, _nlvhd, 0xFF), zero), invneg)); // invert if n*v < 0
+    float lighting = 0.2f; // ambient lighting
+    lighting += std::max(rcps_nlvhd[0] * nlvhd[1], 0.f); // diffuse term = n * l / |n||l| = n * l / |n| = cos(theta)
+    const v4sf vlighting = _mm_set_ps1(lighting);
+    v4sf litc = vlighting * m_colorf;
+    const v4sf rvd = _mm_max_ps(_mm_set_ps1(rcps_nlvhd[0] * nlvhd[3]), zero); // n * h / |n|
+    static const v4sf specbase = {150.f, 150.f, 150.f, 0.f};
+    const v4sf rvd2 = rvd * rvd;
+    const v4sf rvd4 = rvd2 * rvd2;
+    litc += specbase * rvd4 * rvd4;
+    const __v4si litcw = _mm_cvttps_epi32(litc);
+    const __m128i litcw16 = _mm_packs_epi32(litcw, litcw);
+    const __v4si litcw8 = _mm_packus_epi16(litcw16, litcw16);
+    m_pixels[idx] = litcw8[0] | 0xff000000;
 }
 
 void Buffer3D::drawBuffer(int x, int y, const Buffer3D& buf) {

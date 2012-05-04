@@ -94,6 +94,8 @@ class Buffer3D {
     QRgb* m_pixels;
     Number* m_zbuffer;
     Transform3D m_transform;
+    Vector3D m_viewer, m_light, m_half;
+    v4sf m_colorf;
 public:
     Buffer3D();
     Buffer3D(std::size_t w, std::size_t h, Transform3D transform);
@@ -111,7 +113,10 @@ public:
     void drawTransformPoint(const Vector3D& p, QRgb c);
     void drawTransformLine(const Vector3D& p1, const Vector3D& p2, QRgb c);
     // don't have to be unit vectors
-    void drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& normal, const Vector3D& light, const Vector3D& eyeRay, int idx = -1);
+    void setColor(QRgb c);
+    void setLight(Vector3D light);
+    void drawTransformLitPoint(Vector3D p, Vector3D normal, int idx = -1);
+
 
     void setPixel(const Vector3D& p, QRgb c);
     void drawLine(const Vector3D& p1, const Vector3D& p2, QRgb c);

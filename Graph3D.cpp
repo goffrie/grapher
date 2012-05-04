@@ -122,7 +122,8 @@ void ImplicitGraph3D::restart() {
     bool invertible;
     const Transform3D inv = m_transform.inverted(&invertible);
     Q_ASSERT(invertible);
-    QRgb c = m_color.rgba();
+    m_buf.setColor(m_color.rgba());
+    m_buf.setLight(m_light);
     for (int Y = 0; Y < m_height; ++Y) {
         UVector ox(VECTOR_ALLOC(m_width));
         UVector oy(VECTOR_ALLOC(m_width));
@@ -147,7 +148,7 @@ void ImplicitGraph3D::restart() {
             VectorR vdy = dy->evaluateVector(num);
             VectorR vdz = dz->evaluateVector(num);
             for (std::size_t i = 0; i < num; ++i) {
-                m_buf.drawTransformLitPoint(Vector3D(ox[i], oy[i], oz[i]), c, Vector3D(vdx[i], vdy[i], vdz[i]), m_light, m_eyeray, opt[i]);
+                m_buf.drawTransformLitPoint(Vector3D(ox[i], oy[i], oz[i]), Vector3D(vdx[i], vdy[i], vdz[i]), opt[i]);
                 if (cancelled) return;
             }
             VECTOR_FREE(vdx);
