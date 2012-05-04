@@ -61,6 +61,7 @@ void Grapher3D::setBox(Vector3D _boxa, Vector3D _boxb) {
 void Grapher3D::setLightSource(Vector3D _light) {
     if (light != _light) {
         light = _light;
+        light = light.normalized<6>();
         resized();
         update();
     }

@@ -341,10 +341,13 @@ void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& 
     }
     if (z < m_zbuffer[idx]) return;
     m_zbuffer[idx] = z;
-    const v4sf n = { (float)normal.x(), (float)normal.y(), (float)normal.z(), 0 };
-    const v4sf lp = { (float)light.x(), (float)light.y(), (float)light.z(), 0 };
+    static const __v4si nmask = {-1,-1,-1,0};
+    //const v4sf n = { (float)normal.x(), (float)normal.y(), (float)normal.z(), 0 };
+    const v4sf n = _mm_and_si128(normal.v.v, nmask);
+    /*const v4sf lp = { (float)light.x(), (float)light.y(), (float)light.z(), 0 };
     const v4sf vp = { (float)p.x(), (float)p.y(), (float)p.z(), 0 };
-    const v4sf l = lp - vp;
+    const v4sf l = lp - vp;*/
+    const v4sf l = _mm_and_si128(light.v.v, nmask);
     const v4sf nn = n * n;
     const v4sf ll = l * l;
     const v4sf nl = n * l;

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>243</width>
+    <width>255</width>
     <height>165</height>
    </rect>
   </property>
@@ -194,7 +194,7 @@ min-width:2em;</string>
      <item>
       <widget class="QLabel" name="label_5">
        <property name="text">
-        <string>Light source: (</string>
+        <string>Light direction: (</string>
        </property>
       </widget>
      </item>
@@ -211,7 +211,7 @@ min-width:2em;</string>
 min-width:2em;</string>
        </property>
        <property name="text">
-        <string>5</string>
+        <string>1</string>
        </property>
       </widget>
      </item>
@@ -229,7 +229,7 @@ min-width:2em;</string>
 min-width:2em;</string>
        </property>
        <property name="text">
-        <string>-5</string>
+        <string>-1</string>
        </property>
       </widget>
      </item>
@@ -247,7 +247,7 @@ min-width:2em;</string>
 min-width:2em;</string>
        </property>
        <property name="text">
-        <string>5</string>
+        <string>1</string>
        </property>
       </widget>
      </item>
