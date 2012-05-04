@@ -42,8 +42,8 @@ void Graph3D::findEyeRay() {
     Vector3D pt2(0,0,0);
     pt1 = inv * pt1;
     pt2 = inv * pt2;
-    m_eyeray = (pt2 - pt1).normalized();
-    qDebug() << m_eyeray << (inv * Vector3D(148, 149, -10) - inv * Vector3D(148, 149, 7)).normalized();
+    m_eyeray = (pt2 - pt1).normalized<6>();
+//    qDebug() << m_eyeray << (inv * Vector3D(148, 149, -10) - inv * Vector3D(148, 149, 7)).normalized();
 //    Q_ASSERT(qFuzzyCompare((inv * Vector3D(148, 149, -10) - inv * Vector3D(148, 149, 7)).normalized(), m_eyeray));
 }
 
@@ -159,15 +159,13 @@ void ImplicitGraph3D::restart() {
 }
 
 template<int t> struct coord_tag {
-    enum {
-        index = t
-    };
+    enum { index = t };
 };
 typedef coord_tag<0> X;
 typedef coord_tag<1> Y;
 typedef coord_tag<2> Z;
-template<typename T> float get(const Vector3D& v) { return v.v.m[T::index]; }
-template<typename T> void set(Vector3D& v, float n) { v.v.m[T::index] = n; }
+template<typename T> float get(const Vector3D& v) { return v.get<T::index>(); }
+template<typename T> void set(Vector3D& v, float n) { v.set<T::index>(n); }
 
 struct Ray {
     Vector3D a, b;

@@ -133,17 +133,17 @@ Transform3D Transform3D::inverted(bool* invertible) const {
 
 Transform3D Transform3D::translator(qreal dx, qreal dy, qreal dz) {
     Transform3D m;
-    m.rows[0].m[3] = dx;
-    m.rows[1].m[3] = dy;
-    m.rows[2].m[3] = dz;
+    m.rows[0][3] = dx;
+    m.rows[1][3] = dy;
+    m.rows[2][3] = dz;
     return m;
 }
 
 inline Transform3D Transform3D::scaler(qreal dx, qreal dy, qreal dz) {
     Transform3D m;
-    m.rows[0].m[0] = dx;
-    m.rows[1].m[1] = dx;
-    m.rows[2].m[2] = dx;
+    m.rows[0][0] = dx;
+    m.rows[1][1] = dx;
+    m.rows[2][2] = dx;
     return m;
 }
 
@@ -153,9 +153,9 @@ inline Transform3D Transform3D::scaler(qreal dx, qreal dy, qreal dz) {
 #define haddps(a, b) (_mm_shuffle_ps(a, b, 0x88) + _mm_shuffle_ps(a, b, 0xDD))
 #endif
 Vector3D operator*(const Transform3D& t, const Vector3D& v) {
-    const v4sf a = t.rows[0].v * v.v.v; // {t00 * v0, t01 * v1, t02 * v2, t03 * v3}
-    const v4sf b = t.rows[1].v * v.v.v; // {t10 * v0, t11 * v1, t12 * v2, t13 * v3}
-    const v4sf c = t.rows[2].v * v.v.v; // {t20 * v0, t21 * v1, t22 * v2, t23 * v3}
+    const v4sf a = t.rows[0] * v.v; // {t00 * v0, t01 * v1, t02 * v2, t03 * v3}
+    const v4sf b = t.rows[1] * v.v; // {t10 * v0, t11 * v1, t12 * v2, t13 * v3}
+    const v4sf c = t.rows[2] * v.v; // {t20 * v0, t21 * v1, t22 * v2, t23 * v3}
     const v4sf ab = haddps(a, b); // {t00 * v0 + t01 * v1, t02 * v2 + t03 * v3, t10 * v0 + t11 * v1, t12 * v2 + t13 * v3}
     const static v4sf onezeros = {1.f, 0.f, 0.f, 0.f};
     const v4sf c1 = haddps(c, onezeros); // {t20 * v0 + t21 * v1, t22 * v2 + t23 * v3, 1.f, 0.f}
@@ -173,7 +173,7 @@ Transform3D operator*(const Transform3D& a, const Transform3D& b) {
     for (int y = 0; y < 4; ++y) {
         for (int x = 0; x < 4; ++x) {
             for (int i = 0; i < 4; ++i) {
-                result.rows[y].m[x] += a.rows[y].m[i] * b.rows[i].m[x];
+                result.rows[y][x] += a.rows[y][i] * b.rows[i][x];
             }
         }
     }
@@ -181,34 +181,34 @@ Transform3D operator*(const Transform3D& a, const Transform3D& b) {
 }
 
 Vector3D operator+(const Vector3D& a, const Vector3D& b) {
-    Vector3D result(a.v.v + b.v.v);
-    result.v.m[3] = 1.f;
+    Vector3D result(a.v + b.v);
+    result.v[3] = 1.f;
     return result;
 }
 Vector3D operator-(const Vector3D& a, const Vector3D& b) {
-    Vector3D result(a.v.v - b.v.v);
-    result.v.m[3] = 1.f;
+    Vector3D result(a.v - b.v);
+    result.v[3] = 1.f;
     return result;
 }
 Vector3D operator*(const Vector3D& a, float b) {
     v4sf B = {b, b, b, 1.f};
-    return Vector3D(a.v.v * B);
+    return Vector3D(a.v * B);
 }
 
 bool operator==(const Vector3D& a, const Vector3D& b) {
-    return qFuzzyCompare(a.v.m[0], b.v.m[0]) && qFuzzyCompare(a.v.m[1], b.v.m[1]) && qFuzzyCompare(a.v.m[2], b.v.m[2]);
+    return qFuzzyCompare(a.v[0], b.v[0]) && qFuzzyCompare(a.v[1], b.v[1]) && qFuzzyCompare(a.v[2], b.v[2]);
 }
 
 QDebug operator<<(QDebug a, const Vector3D& b) {
-    a.nospace() << "Vector3D(" << b.x() << ',' << b.y() << ',' << b.z() << ")[" << b.v.m[3] << ']';
+    a.nospace() << "Vector3D(" << b.x() << ',' << b.y() << ',' << b.z() << ")[" << b.v[3] << ']';
     return a.space();
 }
 QDebug operator<<(QDebug a, const Transform3D& b) {
     a.nospace() << "Transform3D{\n"
-        << b.rows[0].m[0] << ',' << b.rows[0].m[1] << ',' << b.rows[0].m[2] << ',' << b.rows[0].m[3] << '\n'
-        << b.rows[1].m[0] << ',' << b.rows[1].m[1] << ',' << b.rows[1].m[2] << ',' << b.rows[1].m[3] << '\n'
-        << b.rows[2].m[0] << ',' << b.rows[2].m[1] << ',' << b.rows[2].m[2] << ',' << b.rows[2].m[3] << '\n'
-        << b.rows[3].m[0] << ',' << b.rows[3].m[1] << ',' << b.rows[3].m[2] << ',' << b.rows[3].m[3] << '\n'
+        << b.rows[0][0] << ',' << b.rows[0][1] << ',' << b.rows[0][2] << ',' << b.rows[0][3] << '\n'
+        << b.rows[1][0] << ',' << b.rows[1][1] << ',' << b.rows[1][2] << ',' << b.rows[1][3] << '\n'
+        << b.rows[2][0] << ',' << b.rows[2][1] << ',' << b.rows[2][2] << ',' << b.rows[2][3] << '\n'
+        << b.rows[3][0] << ',' << b.rows[3][1] << ',' << b.rows[3][2] << ',' << b.rows[3][3] << '\n'
         << '}';
     return a.space();
 }
@@ -342,12 +342,8 @@ void Buffer3D::drawTransformLitPoint(const Vector3D& p, QRgb c, const Vector3D& 
     if (z < m_zbuffer[idx]) return;
     m_zbuffer[idx] = z;
     static const __v4si nmask = {-1,-1,-1,0};
-    //const v4sf n = { (float)normal.x(), (float)normal.y(), (float)normal.z(), 0 };
-    const v4sf n = _mm_and_si128(normal.v.v, nmask);
-    /*const v4sf lp = { (float)light.x(), (float)light.y(), (float)light.z(), 0 };
-    const v4sf vp = { (float)p.x(), (float)p.y(), (float)p.z(), 0 };
-    const v4sf l = lp - vp;*/
-    const v4sf l = _mm_and_si128(light.v.v, nmask);
+    const v4sf n = _mm_and_si128(normal.v, nmask);
+    const v4sf l = _mm_and_si128(light.v, nmask);
     const v4sf nn = n * n;
     const v4sf ll = l * l;
     const v4sf nl = n * l;

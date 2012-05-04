@@ -90,12 +90,12 @@ void Grapher3D::paintEvent(QPaintEvent*) {
         Vector3D a;
         for (int l = 0, n = j; l < 3; ++l) {
             if (l == i) continue;
-            a.v.m[l] = (n?boxa:boxb).v.m[l];
+            a.v[l] = (n?boxa:boxb).v[l];
             n = k;
         }
         Vector3D b = a;
-        a.v.m[i] = boxa.v.m[i];
-        b.v.m[i] = boxb.v.m[i];
+        a.v[i] = boxa.v[i];
+        b.v[i] = boxb.v[i];
         buf.drawTransformLine(a, b, Qt::black);
     }
     foreach (Graph3D* graph, graphs) {
