@@ -229,7 +229,7 @@ min-width:2em;</string>
 min-width:2em;</string>
        </property>
        <property name="text">
-        <string>-1</string>
+        <string>-2</string>
        </property>
       </widget>
      </item>
