@@ -6,11 +6,6 @@
 
 #include <gsl/gsl_math.h>
 
-union v4sii {
-    __m64 v;
-    int16_t m[4];
-};
-
 Transform3D::Transform3D(const float* f) {
     std::memcpy(rows, f, sizeof(float)*16);
 }
