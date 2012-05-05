@@ -203,6 +203,7 @@ haddps(__m128 a, __m128 b) { return _mm_hadd_ps(a, b); }
 inline __m128 __attribute__((__gnu_inline__, __always_inline__))
 haddps(__m128 a, __m128 b) { return _mm_shuffle_ps(a, b, 0x88) + _mm_shuffle_ps(a, b, 0xDD); }
 #endif
+#ifndef __SSE4_1__
 Vector3D operator*(const Transform3D& t, const Vector3D& v) {
     const v4sf a = t.rows[0] * v.v; // {t00 * v0, t01 * v1, t02 * v2, t03 * v3}
     const v4sf b = t.rows[1] * v.v; // {t10 * v0, t11 * v1, t12 * v2, t13 * v3}
@@ -216,6 +217,7 @@ Vector3D operator*(const Transform3D& t, const Vector3D& v) {
                                              //  1.f}
     return Vector3D(result);
 }
+#endif
 
 // TODO: optimize????
 Transform3D operator*(const Transform3D& a, const Transform3D& b) {

@@ -383,8 +383,8 @@ std::complex<double>* durandkerner(const std::unique_ptr<Polynomial>& _poly, int
                     denom *= roots[i] - roots[j];
                 }
             }
-            std::complex<double> adjust = poly.evaluate(roots[i]) / denom;
-            if (norm(adjust) > 0.00001) repeat = true;
+            const std::complex<double> adjust = poly.evaluate(roots[i]) / denom;
+            if (adjust.real() * adjust.real() + adjust.imag() * adjust.imag() > 0.00001) repeat = true;
             roots[i] -= adjust;
             if (diag) std::cerr << roots[i] << ' ';
             rootChanged(roots[i].real());

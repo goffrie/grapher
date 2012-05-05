@@ -19,6 +19,10 @@
 #include <pmmintrin.h>
 #endif
 
+#ifdef __SSE4_1__
+#include <smmintrin.h>
+#endif
+
 typedef __m128 v4sf;
 #define _mm_shufd(xmm, mask) (_mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xmm), mask)))
 
@@ -78,6 +82,9 @@ struct alignas(16) Transform3D {
 Q_DECLARE_METATYPE(Transform3D);
 
 inline v4sf dot4(const Vector3D& a, const Vector3D& b) {
+#ifdef __SSE4_1__
+    return _mm_dp_ps(a.v, b.v, 0x7F);
+#else
     const static v4sf ones = {1.f, 1.f, 1.f, 1.f};
     __m128 t = _mm_mul_ps(a.v, b.v); // {x1*x2, y1*y2, z1*z2, 1}
     t = _mm_add_ps(t, _mm_shufd(t, 0x4E));
@@ -87,12 +94,28 @@ inline v4sf dot4(const Vector3D& a, const Vector3D& b) {
                                     // {y1*y2+1, x1*x2+z1*z2, y1*y2+1, x1*x2+z1*z2
                       // {x1*x2+y1*y2+z1*z2+1, x1*x2+y1*y2+z1*z2+1, x1*x2+y1*y2+z1*z2+1, x1*x2+y1*y2+z1*z2+1}
            // {x1*x2+y1*y2+z1*z2} * 4
+#endif
 }
 inline float dot(const Vector3D& a, const Vector3D& b) {
     return _mm_cvtss_f32(dot4(a, b));
 }
 
+#ifdef __SSE4_1__
+inline Vector3D operator*(const Transform3D& t, const Vector3D& v) {
+    return _mm_or_ps(
+        _mm_or_ps(
+            _mm_dp_ps(t.rows[0], v.v, 0xF1), // store into first field
+            _mm_dp_ps(t.rows[1], v.v, 0xF2) // store into second field
+        ),
+        _mm_or_ps(
+            _mm_dp_ps(t.rows[2], v.v, 0xF4), // store into third field
+            vec4(0.f, 0.f, 0.f, 1.f)
+        )
+    );
+}
+#else
 Vector3D operator*(const Transform3D& t, const Vector3D& v);
+#endif
 Transform3D operator*(const Transform3D& a, const Transform3D& b);
 Vector3D operator+(const Vector3D& a, const Vector3D& b);
 Vector3D operator-(const Vector3D& a, const Vector3D& b);
