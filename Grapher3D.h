@@ -9,6 +9,7 @@
 
 class QPaintEvent;
 class QResizeEvent;
+class QMouseEvent;
 class Graph3D;
 class QTimer;
 class QLabel;
@@ -16,14 +17,17 @@ class QLabel;
 class Grapher3D : public QWidget {
     Q_OBJECT
     Vector3D boxa, boxb, light;
-    Transform3D transform;
+    Transform3D baseTransform, rotation, comb;
 
     bool needsRedraw;
     QTimer* redrawTimer;
     bool showAxes;
     QLabel* diagnostic;
+
+    QPoint mouse;
 protected:
     virtual void mousePressEvent(QMouseEvent*);
+    virtual void mouseMoveEvent(QMouseEvent*);
 public:
     QMap<QObject*, Graph3D*> graphs;
     Grapher3D(QWidget* parent = NULL);

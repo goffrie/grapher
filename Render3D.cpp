@@ -126,7 +126,39 @@ Transform3D Transform3D::inverted(bool* invertible) const {
     return ret;
 }
 
-Transform3D Transform3D::translator(qreal dx, qreal dy, qreal dz) {
+const Transform3D Transform3D::isometricTransform{
+    1./M_SQRT2, 0., -1./M_SQRT2, 0.,
+    1./(M_SQRT2*M_SQRT3), M_SQRT2/M_SQRT3, 1./(M_SQRT2*M_SQRT3), 0.,
+    1./M_SQRT3, -1./M_SQRT3, 1./M_SQRT3, 0.,
+    0., 0., 0., 1.
+};
+
+Transform3D Transform3D::fit(int w, int h, int x1, int x2, int y1, int y2, int z1, int z2) const {
+    const Vector3D points[8] = {
+        Vector3D(x1, y1, z1),
+        Vector3D(x1, y1, z2),
+        Vector3D(x1, y2, z1),
+        Vector3D(x1, y2, z2),
+        Vector3D(x2, y1, z1),
+        Vector3D(x2, y1, z2),
+        Vector3D(x2, y2, z1),
+        Vector3D(x2, y2, z2)
+    };
+    float left, right, top, bottom;
+    for (int i = 0; i < 8; ++i) {
+        Vector3D p = (*this) * points[i];
+        if (i == 0 || left > p.x()) left = p.x();
+        if (i == 0 || right < p.x()) right = p.x();
+        if (i == 0 || top > p.y()) top = p.y();
+        if (i == 0 || bottom < p.y()) bottom = p.y();
+    }
+    float scale = qMin(w / (right - left), h / (bottom - top));
+    float dx = (w - ((right - left) * scale)) / 2 - left * scale,
+          dy = (h - ((bottom - top) * scale)) / 2 - top * scale;
+    return Transform3D::translator(dx, dy, 0.) * Transform3D::scaler(scale, scale, 1) * (*this);
+}
+
+Transform3D Transform3D::translator(float dx, float dy, float dz) {
     Transform3D m;
     m.rows[0][3] = dx;
     m.rows[1][3] = dy;
@@ -134,12 +166,39 @@ Transform3D Transform3D::translator(qreal dx, qreal dy, qreal dz) {
     return m;
 }
 
-inline Transform3D Transform3D::scaler(qreal dx, qreal dy, qreal dz) {
+Transform3D Transform3D::scaler(float dx, float dy, float dz) {
     Transform3D m;
     m.rows[0][0] = dx;
     m.rows[1][1] = dx;
     m.rows[2][2] = dx;
     return m;
+}
+
+Transform3D Transform3D::rotatorX(float theta) {
+    const float c = std::cos(theta), s = std::sin(theta);
+    return Transform3D({
+        1, 0, 0, 0,
+        0, c,-s, 0,
+        0, s, c, 0,
+        0, 0, 0, 1});
+}
+
+Transform3D Transform3D::rotatorY(float theta) {
+    const float c = std::cos(theta), s = std::sin(theta);
+    return Transform3D({
+        c, 0, s, 0,
+        0, 1, 0, 0,
+       -s, 0, c, 0,
+        0, 0, 0, 1});
+}
+
+Transform3D Transform3D::rotatorZ(float theta) {
+    const float c = std::cos(theta), s = std::sin(theta);
+    return Transform3D({
+        c,-s, 0, 0,
+        s, c, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1});
 }
 
 #ifdef __SSE3__
@@ -208,46 +267,6 @@ QDebug operator<<(QDebug a, const Transform3D& b) {
         << b.rows[3][0] << ',' << b.rows[3][1] << ',' << b.rows[3][2] << ',' << b.rows[3][3] << '\n'
         << '}';
     return a.space();
-}
-
-Transform3D isometricTransform(int w, int h, int x1, int x2, int y1, int y2, int z1, int z2) {
-    const static float isometric[16] = {
-        1./M_SQRT2, 0., -1./M_SQRT2, 0.,
-        1./(M_SQRT2*M_SQRT3), M_SQRT2/M_SQRT3, 1./(M_SQRT2*M_SQRT3), 0.,
-        1./M_SQRT3, -1./M_SQRT3, 1./M_SQRT3, 0.,
-        0., 0., 0., 1.
-    };
-    Transform3D xform(isometric);
-    const Vector3D points[8] = {
-        Vector3D(x1, y1, z1),
-        Vector3D(x1, y1, z2),
-        Vector3D(x1, y2, z1),
-        Vector3D(x1, y2, z2),
-        Vector3D(x2, y1, z1),
-        Vector3D(x2, y1, z2),
-        Vector3D(x2, y2, z1),
-        Vector3D(x2, y2, z2)
-    };
-    float left, right, top, bottom;
-    for (int i = 0; i < 8; ++i) {
-        Vector3D p = xform * points[i];
-        if (i == 0 || left > p.x()) left = p.x();
-        if (i == 0 || right < p.x()) right = p.x();
-        if (i == 0 || top > p.y()) top = p.y();
-        if (i == 0 || bottom < p.y()) bottom = p.y();
-    }
-    float scale = qMin(w / (right - left), h / (bottom - top));
-    float dx = (w - ((right - left) * scale)) / 2 - left * scale,
-          dy = (h - ((bottom - top) * scale)) / 2 - top * scale;
-    Transform3D ret = Transform3D::translator(dx, dy, 0.) * Transform3D::scaler(scale, scale, 1) * xform;
-/*    bool wtf;
-    qDebug() << ret << ret.inverted(&wtf) << ret * ret.inverted(&wtf) << ret.inverted(&wtf) * ret;
-    qDebug() << dx << dy << scale;
-    qDebug() << Vector3D(0, 0, 0);
-    qDebug() << Transform3D::translator(dx, dy, 0.) * Vector3D(0, 0, 0);
-    qDebug() << Transform3D::scaler(scale, scale, 1.) * Vector3D(1, 1, 1);
-    qDebug() << ret * Vector3D(0, 0, 0);*/
-    return ret;
 }
 
 

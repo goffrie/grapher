@@ -54,8 +54,13 @@ struct alignas(16) Transform3D {
         0.f, 0.f, 1.f, 0.f,
         0.f, 0.f, 0.f, 1.f}) : Transform3D(f.begin()) { }
     Transform3D inverted(bool* invertible) const;
-    static Transform3D translator(qreal dx, qreal dy, qreal dz);
-    static Transform3D scaler(qreal x, qreal y, qreal z);
+    Transform3D fit(int w, int h, int x1, int x2, int y1, int y2, int z1, int z2) const;
+    static Transform3D translator(float dx, float dy, float dz);
+    static Transform3D scaler(float x, float y, float z);
+    static Transform3D rotatorX(float theta);
+    static Transform3D rotatorY(float theta);
+    static Transform3D rotatorZ(float theta);
+    const static Transform3D isometricTransform;
 };
 Q_DECLARE_METATYPE(Transform3D);
 
@@ -86,8 +91,6 @@ inline bool operator!=(const Vector3D& a, const Vector3D& b) { return !(a==b); }
 
 QDebug operator<<(QDebug a, const Vector3D& b);
 QDebug operator<<(QDebug a, const Transform3D& b);
-
-Transform3D isometricTransform(int w, int h, int x1, int x2, int y1, int y2, int z1, int z2);
 
 class Buffer3D {
     std::size_t m_width, m_height;

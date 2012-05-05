@@ -24,6 +24,7 @@ Grapher3D::Grapher3D(QWidget* parent) : QWidget(parent), needsRedraw(false), red
         diagnostic->setMinimumSize(QSize(400, 400));
         diagnostic->setMaximumSize(diagnostic->minimumSize());
     }
+    baseTransform = Transform3D::isometricTransform;
 }
 
 Grapher3D::~Grapher3D() {
@@ -36,12 +37,21 @@ void Grapher3D::mousePressEvent(QMouseEvent* event) {
             ImplicitGraph3D* g = dynamic_cast<ImplicitGraph3D*>(graph);
             if (!g) continue;
             bool inv;
-            diagnostic->setPixmap(g->diagnostics(transform.inverted(&inv), event->x(), event->y(), diagnostic->size()));
+            diagnostic->setPixmap(g->diagnostics(comb.inverted(&inv), event->x(), event->y(), diagnostic->size()));
             diagnostic->show();
             return;
         }
     }
+    mouse = event->pos();
     QWidget::mousePressEvent(event);
+}
+
+void Grapher3D::mouseMoveEvent(QMouseEvent* event) {
+    QPoint d = event->pos() - mouse;
+    mouse = event->pos();
+    rotation = Transform3D::rotatorY(d.x() * 0.01f) * Transform3D::rotatorX(d.y() * -0.01f) * rotation;
+    resized();
+    update();
 }
 
 void Grapher3D::addGraph(QObject* id) {
@@ -68,11 +78,11 @@ void Grapher3D::setLightSource(Vector3D _light) {
 
 
 void Grapher3D::resized() {
-    transform = isometricTransform(width(), height(), boxa.x(), boxb.x(), boxa.y(), boxb.y(), boxa.z(), boxb.z());
+    comb = (rotation * baseTransform).fit(width(), height(), boxa.x(), boxb.x(), boxa.y(), boxb.y(), boxa.z(), boxb.z());
 
     foreach (Graph3D* graph, graphs) {
         if (!graph) continue;
-        graph->setupRestart(transform, width(), height(), boxa, boxb, light);
+        graph->setupRestart(comb, width(), height(), boxa, boxb, light);
     }
 }
 
@@ -84,7 +94,7 @@ void Grapher3D::setShowAxes(bool _showAxes) {
 void Grapher3D::paintEvent(QPaintEvent*) {
     if (width() == 0) return;
     QPainter painter(this);
-    Buffer3D buf(width(), height(), transform);
+    Buffer3D buf(width(), height(), comb);
     if (showAxes) for (int i = 0; i < 3; ++i) for (int j = 0; j < 2; ++j) for (int k = 0; k < 2; ++k) {
         Vector3D a;
         for (int l = 0, n = j; l < 3; ++l) {
@@ -132,7 +142,7 @@ void Grapher3D::changeGraph(QObject* id, Graph3D* graph) {
     graphs[id] = graph;
     graph->setParent(this);
     connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
-    graph->setupRestart(transform, width(), height(), boxa, boxb, light);
+    graph->setupRestart(comb, width(), height(), boxa, boxb, light);
 }
 
 void Grapher3D::scheduleUpdate(bool now) {
