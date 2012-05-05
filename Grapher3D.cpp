@@ -24,7 +24,6 @@ Grapher3D::Grapher3D(QWidget* parent) : QWidget(parent), needsRedraw(false), red
         diagnostic->setMinimumSize(QSize(400, 400));
         diagnostic->setMaximumSize(diagnostic->minimumSize());
     }
-    baseTransform = Transform3D::isometricTransform;
 }
 
 Grapher3D::~Grapher3D() {
@@ -36,8 +35,7 @@ void Grapher3D::mousePressEvent(QMouseEvent* event) {
             if (!graph) continue;
             ImplicitGraph3D* g = dynamic_cast<ImplicitGraph3D*>(graph);
             if (!g) continue;
-            bool inv;
-            diagnostic->setPixmap(g->diagnostics(comb.inverted(&inv), event->x(), event->y(), diagnostic->size()));
+            diagnostic->setPixmap(g->diagnostics(comb.inverted(), event->x(), event->y(), diagnostic->size()));
             diagnostic->show();
             return;
         }
@@ -49,8 +47,12 @@ void Grapher3D::mousePressEvent(QMouseEvent* event) {
 void Grapher3D::mouseMoveEvent(QMouseEvent* event) {
     QPoint d = event->pos() - mouse;
     mouse = event->pos();
+    Transform3D left = (rotation * baseTransform);
     rotation = Transform3D::rotatorY(d.x() * 0.01f) * Transform3D::rotatorX(d.y() * -0.01f) * rotation;
+    Vector3D mid = (boxa + boxb) * 0.5f;
+    light = (rotation * baseTransform).inverted() * (left * (light - mid)) + mid;
     resized();
+    
     update();
 }
 
@@ -78,6 +80,8 @@ void Grapher3D::setLightSource(Vector3D _light) {
 
 
 void Grapher3D::resized() {
+    Vector3D mid = (boxa + boxb) * 0.5f;
+    baseTransform = Transform3D::translator(-mid.x(), -mid.y(), -mid.z()) * Transform3D::isometricTransform;
     comb = (rotation * baseTransform).fit(width(), height(), boxa.x(), boxb.x(), boxa.y(), boxb.y(), boxa.z(), boxb.z());
 
     foreach (Graph3D* graph, graphs) {

@@ -10,8 +10,7 @@ Transform3D::Transform3D(const float* f) {
     std::memcpy(rows, f, sizeof(float)*16);
 }
 
-Transform3D Transform3D::inverted(bool* invertible) const {
-    *invertible = true;
+Transform3D Transform3D::inverted() const {
     __m128 minor0, minor1, minor2, minor3;
     __m128 row0, row1, row2, row3;
     __m128 det, tmp1;
@@ -277,9 +276,7 @@ Buffer3D::Buffer3D(std::size_t w, std::size_t h, Transform3D transform) : m_widt
 m_pixels(new QRgb[w*h]), m_zbuffer(new Number[w*h]), m_transform(transform) {
     clear();
     const v4sf dz = {0.f, 0.f, 1.f, 0.f};
-    bool invertible;
-    m_viewer = (m_transform.inverted(&invertible) * dz).normalized<6>();
-    Q_ASSERT(invertible);
+    m_viewer = (m_transform.inverted() * dz).normalized<6>();
 }
 
 Buffer3D::~Buffer3D() {

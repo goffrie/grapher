@@ -35,9 +35,7 @@ void Graph3D::setupRestart(const Transform3D& t, int width, int height, Vector3D
 }
 
 void Graph3D::findEyeRay() {
-    bool invertible;
-    Transform3D inv = m_transform.inverted(&invertible);
-    Q_ASSERT(invertible);
+    Transform3D inv = m_transform.inverted();
     Vector3D pt1(0,0,1);
     Vector3D pt2(0,0,0);
     pt1 = inv * pt1;
@@ -119,9 +117,7 @@ template<typename T> QList<T> range(T a, T b) {
 }
 
 void ImplicitGraph3D::restart() {
-    bool invertible;
-    const Transform3D inv = m_transform.inverted(&invertible);
-    Q_ASSERT(invertible);
+    const Transform3D inv = m_transform.inverted();
     m_buf.setColor(m_color.rgba());
     m_buf.setLight(m_light);
     for (int Y = 0; Y < m_height; ++Y) {

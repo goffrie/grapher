@@ -53,7 +53,7 @@ struct alignas(16) Transform3D {
         0.f, 1.f, 0.f, 0.f,
         0.f, 0.f, 1.f, 0.f,
         0.f, 0.f, 0.f, 1.f}) : Transform3D(f.begin()) { }
-    Transform3D inverted(bool* invertible) const;
+    Transform3D inverted() const;
     Transform3D fit(int w, int h, int x1, int x2, int y1, int y2, int z1, int z2) const;
     static Transform3D translator(float dx, float dy, float dz);
     static Transform3D scaler(float x, float y, float z);
