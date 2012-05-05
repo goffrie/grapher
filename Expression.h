@@ -17,6 +17,8 @@
 
 #include <QMetaType>
 
+#include <malloc.h>
+
 inline void* aligned_malloc(size_t size) {
     void* pa = malloc(size + 15 + sizeof(void *));
     if (!pa) return NULL;

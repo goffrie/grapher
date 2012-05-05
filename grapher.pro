@@ -138,22 +138,47 @@ INCLUDEPATH += . \
 HEADERS += dynamic_unique_cast.h \
            Expression.h \
            Graph.h \
-           Grapher.h \
-           GraphProperties.h \
+           Graph2D.h \
+           Graph3D.h \
+           Grapher2D.h \
+           Grapher3D.h \
+           Graph2DProperties.h \
+           Graph3DProperties.h \
+           Window2DSettings.h \
+           Window3DSettings.h \
+           UI.h \
+           UIFactory.h \
+           UI2DFactory.h \
+           UI3DFactory.h \
            MainWindow.h \
            Parser.h \
            util.h \
-           WindowSettings.h
-FORMS += GraphProperties.ui MainWindow.ui WindowSettings.ui
+           Render3D.h \
+           sse_mathfun.h
+FORMS += Graph2DProperties.ui \
+         Graph3DProperties.ui \
+         MainWindow.ui \
+         UI.ui \
+         Window2DSettings.ui \
+         Window3DSettings.ui
 SOURCES += Expression.cpp \
            Graph.cpp \
-           Grapher.cpp \
-           GraphProperties.cpp \
+           Graph2D.cpp \
+           Graph3D.cpp \
+           Grapher2D.cpp \
+           Grapher3D.cpp \
+           Graph2DProperties.cpp \
+           Graph3DProperties.cpp \
+           Window2DSettings.cpp \
+           Window3DSettings.cpp \
+           UI.cpp \
+           UI2DFactory.cpp \
+           UI3DFactory.cpp \
            main.cpp \
            MainWindow.cpp \
            Parser.cpp \
-           WindowSettings.cpp
-QMAKE_CXXFLAGS_DEBUG += -ggdb -ffast-math -ftree-vectorize -std=c++0x -march=pentium4 -fno-omit-frame-pointer
-QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -DQT_NO_DEBUG -O3 -ffast-math -ftree-vectorize -std=c++0x -march=pentium4
+           Render3D.cpp
+QMAKE_CXXFLAGS_DEBUG += -ggdb -ffast-math -ftree-vectorize -std=c++0x -march=pentium4 -msse3 -fno-omit-frame-pointer
+QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -DQT_NO_DEBUG -O3 -ffast-math -ftree-vectorize -std=c++0x -march=pentium4 -msse3
 
 LIBS += "C:\\Documents and Settings\\Generic User\\Desktop\\grapher\\libgsl.a"

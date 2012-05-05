@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include <gsl/gsl_math.h>
+
 #include "dynamic_unique_cast.h"
 
 static int nextColor = 0;

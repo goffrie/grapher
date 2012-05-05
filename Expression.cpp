@@ -14,6 +14,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <limits>
 
 // #define DEBUG_SIMPLIFY std::cerr << "simplifying at " << __LINE__ << ": " << toString() << std::endl;
 #define DEBUG_SIMPLIFY

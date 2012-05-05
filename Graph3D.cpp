@@ -10,10 +10,12 @@
 #include <functional>
 #include <cmath>
 #include <cstring>
+#include <algorithm>
 
 #include <boost/config/suffix.hpp>
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
+#include <gsl/gsl_math.h>
 #include <complex>
 
 Graph3D::Graph3D(QObject* parent) : Graph(parent) {
