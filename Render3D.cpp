@@ -6,15 +6,11 @@
 
 #include <gsl/gsl_math.h>
 
-Transform3D::Transform3D(const float* f) {
-    std::memcpy(rows, f, sizeof(float)*16);
-}
-
 Transform3D Transform3D::inverted() const {
     __m128 minor0, minor1, minor2, minor3;
     __m128 row0, row1, row2, row3;
     __m128 det, tmp1;
-    const float* const src = (const float*) rows;
+    const float* const src = (const float*) rows.begin();
 
     tmp1 = _mm_loadh_pi(_mm_loadl_pi(tmp1, (__m64*)(src)), (__m64*)(src+ 4));
     row1 = _mm_loadh_pi(_mm_loadl_pi(row1, (__m64*)(src+8)), (__m64*)(src+12));
@@ -104,7 +100,7 @@ Transform3D Transform3D::inverted() const {
     det = _mm_shuffle_ps(det, det, 0x00);
 
     Transform3D ret;
-    float* dest = (float*)ret.rows;
+    float* dest = (float*)ret.rows.begin();
 
     minor0  = _mm_mul_ps(det, minor0);
     _mm_storel_pi((__m64*)(dest), minor0);

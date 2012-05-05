@@ -2,6 +2,7 @@
 #define _RENDER3D_H_
 
 #include <initializer_list>
+#include <array>
 
 #include <QMatrix4x4>
 #include <QMetaType>
@@ -21,15 +22,21 @@
 typedef __m128 v4sf;
 #define _mm_shufd(xmm, mask) (_mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xmm), mask)))
 
-inline v4sf vec4(float a, float b, float c, float d) {
-    const v4sf r = {a, b, c, d};
-    return r;
+#ifndef HAVE_ALIGNAS
+#define alignas(n)
+#endif
+#ifdef BOOST_NO_CONSTEXPR
+#define constexpr
+#endif
+
+inline constexpr v4sf vec4(float a, float b, float c, float d) {
+    return (v4sf){a, b, c, d};
 }
 struct alignas(16) Vector3D {
     v4sf v; // { x, y, z, 1 }
-    Vector3D() : v(vec4(0.f, 0.f, 0.f, 1.f)) { }
-    Vector3D(v4sf _v) : v(_v) { }
-    Vector3D(float x, float y, float z) : v(vec4(x, y, z, 1.f)) { }
+    constexpr Vector3D() : v(vec4(0.f, 0.f, 0.f, 1.f)) { }
+    constexpr Vector3D(v4sf _v) : v(_v) { }
+    constexpr Vector3D(float x, float y, float z) : v(vec4(x, y, z, 1.f)) { }
     template<int n> float get() const { return v[n]; }
     template<int n> void set(float w) const { v[n] = w; }
     float x() const { return v[0]; }
@@ -44,15 +51,21 @@ struct alignas(16) Vector3D {
     template<int passes>
     static void newtonSqrtPass(v4sf& invsqrtnv, v4sf& halfnv);
 };
-
 Q_DECLARE_METATYPE(Vector3D);
+
 struct alignas(16) Transform3D {
-    v4sf rows[4];
-    Transform3D(const float* f);
-    Transform3D(const std::initializer_list<float>& f = {1.f, 0.f, 0.f, 0.f,
-        0.f, 1.f, 0.f, 0.f,
-        0.f, 0.f, 1.f, 0.f,
-        0.f, 0.f, 0.f, 1.f}) : Transform3D(f.begin()) { }
+    std::array<v4sf, 4> rows;
+    constexpr Transform3D(const float f[16]) : rows(
+      {{vec4(f[0], f[1], f[2], f[3]),
+        vec4(f[4], f[5], f[6], f[7]),
+        vec4(f[8], f[9], f[10], f[11]),
+        vec4(f[12], f[13], f[14], f[15])}}) { }
+    constexpr Transform3D(std::initializer_list<float> f) : Transform3D(f.begin()) { }
+    constexpr Transform3D() : rows(
+      {{vec4(1.f, 0.f, 0.f, 0.f),
+        vec4(0.f, 1.f, 0.f, 0.f),
+        vec4(0.f, 0.f, 1.f, 0.f),
+        vec4(0.f, 0.f, 0.f, 1.f)}}) { }
     Transform3D inverted() const;
     Transform3D fit(int w, int h, int x1, int x2, int y1, int y2, int z1, int z2) const;
     static Transform3D translator(float dx, float dy, float dz);
