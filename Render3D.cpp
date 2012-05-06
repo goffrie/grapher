@@ -271,15 +271,15 @@ Buffer3D::Buffer3D() : m_width(0), m_height(0), m_pixels(NULL), m_zbuffer(NULL) 
 }
 
 Buffer3D::Buffer3D(std::size_t w, std::size_t h, Transform3D transform) : m_width(w), m_height(h),
-m_pixels(new QRgb[w*h]), m_zbuffer(new Number[w*h]), m_transform(transform) {
+m_pixels((QRgb*) aligned_malloc(((w*h + 3) & ~3)*sizeof(QRgb))), m_zbuffer(VECTOR_ALLOC(w*h)), m_transform(transform) {
     clear();
     const v4sf dz = {0.f, 0.f, 1.f, 0.f};
     m_viewer = (m_transform.inverted() * dz).normalized<6>();
 }
 
 Buffer3D::~Buffer3D() {
-    delete[] m_pixels;
-    delete[] m_zbuffer;
+    aligned_free(m_pixels);
+    VECTOR_FREE(m_zbuffer);
 }
 
 Buffer3D& Buffer3D::operator=(Buffer3D&& buf) {
@@ -304,20 +304,23 @@ Buffer3D Buffer3D::copy() const {
     r.m_light = m_light;
     r.m_half = m_half;
     const int size = m_width*m_height;
-    r.m_pixels = new QRgb[size];
-    r.m_zbuffer = new Number[size];
+    r.m_pixels = (QRgb*) aligned_malloc(((size + 3) & ~3)*sizeof(QRgb));
+    r.m_zbuffer = VECTOR_ALLOC(size);
     std::memcpy(r.m_pixels, m_pixels, sizeof(QRgb)*size);
     std::memcpy(r.m_zbuffer, m_zbuffer, sizeof(Number)*size);
     return r;
 }
 
-
 void Buffer3D::clear() {
-    std::memset(m_pixels, 255, sizeof(QRgb)*m_width*m_height);
-    Number* end = m_zbuffer + (m_width * m_height);
-    for (Number* p = m_zbuffer; p != end; ++p) {
-        *p = GSL_NEGINF;
-    }
+    std::size_t size = (m_width * m_height + 3) / 4;
+    constexpr __v4si trans = {-1, -1, -1, -1};
+    for (__v4si* pixels = reinterpret_cast<__v4si*>(m_pixels), * end = pixels + size;
+        pixels != end;
+        ++pixels) *pixels = trans;
+    const v4sf neginf = _mm_set_ps1(GSL_NEGINF);
+    for (v4sf* zbuffer = reinterpret_cast<v4sf*>(m_zbuffer), * end = zbuffer + size;
+        zbuffer != end;
+        ++zbuffer) *zbuffer = neginf;
 }
 
 void Buffer3D::drawTransformPoint(const Vector3D& p, QRgb c) {

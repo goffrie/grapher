@@ -32,7 +32,7 @@ typedef float Number;
 
 constexpr int SSE_VECTOR_SIZE = 4;
 
-#define VECTOR_ALLOC(num) ((Vector) aligned_malloc(((num + SSE_VECTOR_SIZE - 1) & (~(SSE_VECTOR_SIZE - 1)))*sizeof(Number)))
+#define VECTOR_ALLOC(num) ((Vector) aligned_malloc((((num) + SSE_VECTOR_SIZE - 1) & (~(SSE_VECTOR_SIZE - 1)))*sizeof(Number)))
 #define VECTOR_FREE(ptr) aligned_free(ptr)
 
 typedef Number __attribute__((aligned(16))) * Vector;

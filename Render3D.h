@@ -131,7 +131,7 @@ QDebug operator<<(QDebug a, const Transform3D& b);
 class Buffer3D {
     std::size_t m_width, m_height;
     QRgb* m_pixels;
-    Number* m_zbuffer;
+    Vector m_zbuffer;
     Transform3D m_transform;
     Vector3D m_viewer, m_light, m_half;
     v4sf m_colorf;
