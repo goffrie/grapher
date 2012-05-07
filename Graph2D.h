@@ -13,6 +13,8 @@
 #include <memory>
 #include <random>
 
+#include <boost/config/suffix.hpp>
+
 class Graph2D : public Graph {
     Q_OBJECT
 protected:
@@ -22,7 +24,7 @@ public:
     void setupRestart(const QTransform& t, int width, int height);
     virtual QImage img() = 0;
 
-    constexpr static int supersample = 2;
+    BOOST_CONSTEXPR_OR_CONST static int supersample = 2;
 };
 
 class InequalityGraph : public Graph2D {
@@ -92,7 +94,7 @@ class ParametricGraph : public IteratingGraph {
     std::uniform_real_distribution<Number> distribution;
     std::mt19937 engine;
     UVector pts;
-    constexpr static std::size_t numPts = 16384;
+    BOOST_CONSTEXPR_OR_CONST static std::size_t numPts = 16384;
     QImage _img;
 
     void draw(Vector vx, Vector vy);

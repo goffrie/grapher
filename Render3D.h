@@ -11,6 +11,8 @@
 
 #include "Expression.h"
 
+#include <boost/config/suffix.hpp>
+
 #include <mmintrin.h>
 #include <emmintrin.h>
 #include <xmmintrin.h>
@@ -26,18 +28,14 @@
 typedef __m128 v4sf;
 #define _mm_shufd(xmm, mask) (_mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xmm), mask)))
 
-#ifdef BOOST_NO_CONSTEXPR
-#define constexpr
-#endif
-
-inline constexpr v4sf vec4(float a, float b, float c, float d) {
+inline BOOST_CONSTEXPR v4sf vec4(float a, float b, float c, float d) {
     return (v4sf){a, b, c, d};
 }
 struct Vector3D {
     v4sf v; // { x, y, z, 1 }
-    constexpr Vector3D() : v(vec4(0.f, 0.f, 0.f, 1.f)) { }
-    constexpr Vector3D(v4sf _v) : v(_v) { }
-    constexpr Vector3D(float x, float y, float z) : v(vec4(x, y, z, 1.f)) { }
+    BOOST_CONSTEXPR Vector3D() : v(vec4(0.f, 0.f, 0.f, 1.f)) { }
+    BOOST_CONSTEXPR Vector3D(v4sf _v) : v(_v) { }
+    BOOST_CONSTEXPR Vector3D(float x, float y, float z) : v(vec4(x, y, z, 1.f)) { }
     template<int n> float get() const { return v[n]; }
     template<int n> void set(float w) { v[n] = w; }
     float x() const { return v[0]; }
@@ -56,13 +54,13 @@ Q_DECLARE_METATYPE(Vector3D);
 
 struct Transform3D {
     std::array<v4sf, 4> rows;
-    constexpr Transform3D(const float f[16]) : rows(
+    BOOST_CONSTEXPR Transform3D(const float f[16]) : rows(
       {{vec4(f[0], f[1], f[2], f[3]),
         vec4(f[4], f[5], f[6], f[7]),
         vec4(f[8], f[9], f[10], f[11]),
         vec4(f[12], f[13], f[14], f[15])}}) { }
-    constexpr Transform3D(std::initializer_list<float> f) : Transform3D(f.begin()) { }
-    constexpr Transform3D() : rows(
+    BOOST_CONSTEXPR Transform3D(std::initializer_list<float> f) : Transform3D(f.begin()) { }
+    BOOST_CONSTEXPR Transform3D() : rows(
       {{vec4(1.f, 0.f, 0.f, 0.f),
         vec4(0.f, 1.f, 0.f, 0.f),
         vec4(0.f, 0.f, 1.f, 0.f),

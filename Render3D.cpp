@@ -6,6 +6,8 @@
 
 #include <gsl/gsl_math.h>
 
+#include <boost/config/suffix.hpp>
+
 Transform3D Transform3D::inverted() const {
     __m128 minor0, minor1, minor2, minor3;
     __m128 row0, row1, row2, row3;
@@ -221,7 +223,7 @@ Vector3D operator*(const Transform3D& t, const Vector3D& v) {
 
 // TODO: optimize????
 Transform3D operator*(const Transform3D& a, const Transform3D& b) {
-    constexpr static float zeroes[16] = { 0.f };
+    BOOST_CONSTEXPR_OR_CONST static float zeroes[16] = { 0.f };
     Transform3D result(zeroes);
     for (int y = 0; y < 4; ++y) {
         for (int x = 0; x < 4; ++x) {
@@ -313,7 +315,7 @@ Buffer3D Buffer3D::copy() const {
 
 void Buffer3D::clear() {
     std::size_t size = (m_width * m_height + 3) / 4;
-    constexpr __v4si trans = {-1, -1, -1, -1};
+    BOOST_CONSTEXPR_OR_CONST __v4si trans = {-1, -1, -1, -1};
     for (__v4si* pixels = reinterpret_cast<__v4si*>(m_pixels), * end = pixels + size;
         pixels != end;
         ++pixels) *pixels = trans;

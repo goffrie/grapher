@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstring>
 
+#include <boost/config/suffix.hpp>
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
 #include <complex>
@@ -69,7 +70,7 @@ dvx(Variable::Id("dvx", Variable::Id::Constant, &dv[0])),
 dvy(Variable::Id("dvy", Variable::Id::Constant, &dv[1])),
 dvz(Variable::Id("dvz", Variable::Id::Constant, &dv[2]))
 {
-    constexpr int num = sizeof(te)/sizeof(te[0]);
+    BOOST_CONSTEXPR_OR_CONST int num = sizeof(te)/sizeof(te[0]);
     for (int i = 0; i < num; ++i) {
         te[i] = Number(i) / Number(num);
     }
@@ -223,8 +224,8 @@ inline bool rayAtPoint(const Transform3D& inv, const Vector3D& eyeray, float y, 
     return true;
 }
 
-constexpr Number epsilon = 1.f / (1<<8);
-constexpr Number bigepsilon = 1.f / (1<<4);
+BOOST_CONSTEXPR_OR_CONST Number epsilon = 1.f / (1<<8);
+BOOST_CONSTEXPR_OR_CONST Number bigepsilon = 1.f / (1<<4);
 
 template<typename F> bool zero(F n) { return !(n > epsilon || n < -epsilon); }
 inline bool zero_wrt(float n, float d) {
@@ -374,7 +375,7 @@ std::complex<double>* durandkerner(const std::unique_ptr<Polynomial>& _poly, int
         return r;
     }
     std::complex<double>* roots = new std::complex<double>[degree];
-    constexpr std::complex<double> startbase(0.6, 0.94);
+    BOOST_CONSTEXPR_OR_CONST std::complex<double> startbase(0.6, 0.94);
     roots[0] = 1.;
     for (int i = 1; i < degree; ++i) {
         roots[i] = roots[i-1] * startbase;
@@ -501,7 +502,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         painter.scale(1, 0.5);
         painter.translate(0, 1);
     }
-    constexpr int tesize = sizeof(te)/sizeof(te[0]);
+    BOOST_CONSTEXPR_OR_CONST int tesize = sizeof(te)/sizeof(te[0]);
     Expression::Subst s;
     Constant _v1x(v1[0]);
     Constant _v1y(v1[1]);

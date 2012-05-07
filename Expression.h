@@ -13,6 +13,7 @@
 #include <cmath>
 #include <gsl/gsl_sf_gamma.h>
 #include <gsl/gsl_sf_psi.h>
+#include <boost/config/suffix.hpp>
 
 #include <QMetaType>
 
@@ -30,7 +31,7 @@ inline void aligned_free(void* ptr) {
 
 typedef float Number;
 
-constexpr int SSE_VECTOR_SIZE = 4;
+BOOST_CONSTEXPR_OR_CONST int SSE_VECTOR_SIZE = 4;
 
 #define VECTOR_ALLOC(num) ((Vector) aligned_malloc((((num) + SSE_VECTOR_SIZE - 1) & (~(SSE_VECTOR_SIZE - 1)))*sizeof(Number)))
 #define VECTOR_FREE(ptr) aligned_free(ptr)
