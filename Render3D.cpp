@@ -128,7 +128,7 @@ const Transform3D Transform3D::isometricTransform{
     0., 0., 0., 1.
 };
 
-Transform3D Transform3D::fit(int w, int h, int x1, int x2, int y1, int y2, int z1, int z2) const {
+Transform3D Transform3D::fit(int w, int h, float x1, float x2, float y1, float y2, float z1, float z2) const {
     const Vector3D points[8] = {
         Vector3D(x1, y1, z1),
         Vector3D(x1, y1, z2),
