@@ -359,7 +359,18 @@ std::complex<double>* durandkerner(const std::unique_ptr<Polynomial>& _poly, int
     degree = poly.degree;
     if (degree == 1) {
         std::complex<double>* r = new std::complex<double>[1];
+        // x + a = 0
+        // x = -a
         *r = -poly.coeff[0];
+        return r;
+    }
+    if (degree == 1) {
+        // x^2 + ax + b = 0
+        // x = (-a +/- sqrt(a^2 - 4b)) / 2
+        std::complex<double> disc = std::sqrt(poly.coeff[0] * poly.coeff[0] - 4.0 * poly.coeff[1]);
+        std::complex<double>* r = new std::complex<double>[2];
+        r[0] = 0.5 * (-poly.coeff[0] + disc);
+        r[1] = 0.5 * (-poly.coeff[0] - disc);
         return r;
     }
     std::complex<double>* roots = new std::complex<double>[degree];
