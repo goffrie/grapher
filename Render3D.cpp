@@ -385,13 +385,13 @@ void Buffer3D::drawTransformLitPoint(Vector3D p, Vector3D normal, int idx) {
     }
     if (z < m_zbuffer[idx]) return;
     m_zbuffer[idx] = z;
-    static const __v4si nmask = {-1,-1,-1,0};
     static const __v4si invneg = {-1<<31,-1<<31,-1<<31,-1<<31};
     static const v4sf zero = {0.f,0.f,0.f,0.f};
-    v4sf n = _mm_and_si128(normal.v, nmask);
+    v4sf n = normal.v;
+    n[3] = 0;
     const v4sf _nlvhd = haddps(haddps(n * n, n * m_light.v), haddps(n * m_viewer.v, n * m_half.v)); // { n * n, n * l, n * v, n * h }
     const v4sf rcps_nlvhd = _mm_rsqrt_ps(_nlvhd); // { 1/|n|, 1/sqrt(n*l), 1/sqrt(n*v), 1/sqrt(n*h) }
-    const v4sf nlvhd = _mm_xor_ps(_nlvhd, _mm_and_ps(_mm_cmplt_ps(_mm_shuffle_ps(_nlvhd, _nlvhd, 0xAA), zero), invneg)); // invert if n*v < 0
+    const v4sf nlvhd = _mm_xor_ps(_nlvhd, _mm_and_ps(_mm_cmplt_ps(_mm_shuffle_ps(_nlvhd, _nlvhd, 0xAA), zero), (v4sf)invneg)); // invert if n*v < 0
     float lighting = 0.2f; // ambient lighting
     lighting += std::max(rcps_nlvhd[0] * nlvhd[1], 0.f); // diffuse term = n * l / |n||l| = n * l / |n| = cos(theta)
     const v4sf vlighting = _mm_set_ps1(lighting);
