@@ -26,9 +26,6 @@
 typedef __m128 v4sf;
 #define _mm_shufd(xmm, mask) (_mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xmm), mask)))
 
-#ifndef HAVE_ALIGNAS
-#define alignas(n)
-#endif
 #ifdef BOOST_NO_CONSTEXPR
 #define constexpr
 #endif
@@ -36,13 +33,13 @@ typedef __m128 v4sf;
 inline constexpr v4sf vec4(float a, float b, float c, float d) {
     return (v4sf){a, b, c, d};
 }
-struct alignas(16) Vector3D {
+struct Vector3D {
     v4sf v; // { x, y, z, 1 }
     constexpr Vector3D() : v(vec4(0.f, 0.f, 0.f, 1.f)) { }
     constexpr Vector3D(v4sf _v) : v(_v) { }
     constexpr Vector3D(float x, float y, float z) : v(vec4(x, y, z, 1.f)) { }
     template<int n> float get() const { return v[n]; }
-    template<int n> void set(float w) const { v[n] = w; }
+    template<int n> void set(float w) { v[n] = w; }
     float x() const { return v[0]; }
     float y() const { return v[1]; }
     float z() const { return v[2]; }
@@ -57,7 +54,7 @@ struct alignas(16) Vector3D {
 };
 Q_DECLARE_METATYPE(Vector3D);
 
-struct alignas(16) Transform3D {
+struct Transform3D {
     std::array<v4sf, 4> rows;
     constexpr Transform3D(const float f[16]) : rows(
       {{vec4(f[0], f[1], f[2], f[3]),
@@ -177,7 +174,7 @@ void Vector3D::newtonSqrtPass(v4sf& invsqrtnv, v4sf& halfnv) {
 #ifdef __SSE3__
 template<int passes>
 Vector3D Vector3D::normalized() const {
-    v4sf vv = { v * v }; // { x*x, y*y, z*z, 1 }
+    v4sf vv = v * v; // { x*x, y*y, z*z, 1 }
     vv[3] = 0; // { x*x, y*y, z*z, 0 }
     v4sf hv = _mm_hadd_ps(vv, vv); // {x*x + y*y, z*z + 0} x 2
     v4sf nv = _mm_hadd_ps(hv, hv); // {x*x + y*y + z*z} x 4
