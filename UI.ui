@@ -21,13 +21,13 @@
   </property>
   <widget class="QScrollArea" name="scrollArea">
    <property name="sizePolicy">
-    <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
      <horstretch>0</horstretch>
      <verstretch>0</verstretch>
     </sizepolicy>
    </property>
    <property name="frameShadow">
-    <enum>QFrame::Sunken</enum>
+    <enum>QFrame::Plain</enum>
    </property>
    <property name="verticalScrollBarPolicy">
     <enum>Qt::ScrollBarAlwaysOn</enum>
@@ -43,20 +43,17 @@
      <rect>
       <x>0</x>
       <y>0</y>
-      <width>560</width>
-      <height>410</height>
+      <width>573</width>
+      <height>414</height>
      </rect>
     </property>
     <property name="sizePolicy">
-     <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+     <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
       <horstretch>0</horstretch>
       <verstretch>0</verstretch>
      </sizepolicy>
     </property>
     <layout class="QVBoxLayout" name="scrollAreaLayout" stretch="0,1">
-     <property name="sizeConstraint">
-      <enum>QLayout::SetMinimumSize</enum>
-     </property>
      <item>
       <widget class="QPushButton" name="newGraphButton">
        <property name="text">
@@ -82,7 +79,7 @@
   </widget>
   <widget class="QFrame" name="frame">
    <property name="sizePolicy">
-    <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
      <horstretch>0</horstretch>
      <verstretch>0</verstretch>
     </sizepolicy>
@@ -91,7 +88,7 @@
     <enum>QFrame::StyledPanel</enum>
    </property>
    <property name="frameShadow">
-    <enum>QFrame::Sunken</enum>
+    <enum>QFrame::Plain</enum>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
     <property name="spacing">

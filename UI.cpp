@@ -27,6 +27,8 @@ UI::UI(UIFactory* factory, QWidget* parent): QSplitter(parent), m_factory(factor
 
     scrollAreaLayout->insertWidget(0, m_factory->windowSettings());
 
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+
     fixPane();
 }
 

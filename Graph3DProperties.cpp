@@ -11,6 +11,7 @@
 #include <gsl/gsl_math.h>
 
 #include "dynamic_unique_cast.h"
+#include "util.h"
 
 static int nextColor = 0;
 static std::set<int> recoveredColors;
@@ -33,6 +34,7 @@ Graph3DProperties::Graph3DProperties(QWidget* parent): QGroupBox(parent) {
     } else {
         color = nextColor++;
     }
+    colorButton->setIcon(circle(16, getColor(color)));
     QPalette p = colorButton->palette();
     p.setColor(QPalette::Button, getColor(color));
     colorButton->setPalette(p);

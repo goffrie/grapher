@@ -1,6 +1,9 @@
 #ifndef _UTIL_H_
 #define _UTIL_H_
 
+#include <QPixmap>
+#include <QPainter>
+
 inline bool isIntegral(Number a) {
     const Number b = floor(a + 0.5);
     const Number epsilon = 1e-4;
@@ -49,6 +52,17 @@ inline int binom(int n, int k) {
         r /= i + 1;
     }
     return r;
+}
+
+inline QPixmap circle(int size, QColor color) {
+    QImage img(size, size, QImage::Format_ARGB32_Premultiplied);
+    img.fill(Qt::transparent);
+    QPainter painter(&img);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setBrush(QBrush(color));
+    painter.setPen(Qt::NoPen);
+    painter.drawEllipse(0, 0, size, size);
+    return QPixmap::fromImage(img);
 }
 
 #endif
