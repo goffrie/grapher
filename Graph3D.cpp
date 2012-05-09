@@ -18,6 +18,12 @@
 #include <gsl/gsl_math.h>
 #include <complex>
 
+#ifdef _WIN32
+#include <malloc.h>
+#else
+#include <alloca.h>
+#endif
+
 Graph3D::Graph3D(QObject* parent) : Graph(parent) {
 
 }
@@ -335,7 +341,7 @@ struct Poly {
     ~Poly() {
         delete coeff;
     }
-    template<typename T> std::complex<T> evaluate(std::complex<T> x) {
+    template<typename T> std::complex<T> evaluate(std::complex<T> x) const {
         if (degree == 0) return x;
         std::complex<T> r = x + coeff[0];
         for (int i = 1; i < degree; ++i) {
@@ -356,27 +362,25 @@ std::ostream& operator<<(std::ostream& s, const Poly& p) {
 }
 
 template<bool diag = false, typename T>
-std::complex<double>* durandkerner(const std::unique_ptr<Polynomial>& _poly, int& degree, T rootChanged) {
-    Poly poly(_poly.get());
+void durandkerner(const Poly& poly, std::complex<double>* roots, T rootChanged) {
     if (diag) std::cerr << poly << std::endl;
-    degree = poly.degree;
+    int degree = poly.degree;
     if (degree == 1) {
-        std::complex<double>* r = new std::complex<double>[1];
-        // x + a = 0
-        // x = -a
-        *r = -poly.coeff[0];
-        return r;
+        // x + a = 0 => x = -a
+        roots[0] = -poly.coeff[0];
+        rootChanged(roots[0].real());
+        return;
     }
-    if (degree == 1) {
+    if (degree == 2) {
         // x^2 + ax + b = 0
         // x = (-a +/- sqrt(a^2 - 4b)) / 2
         std::complex<double> disc = std::sqrt(poly.coeff[0] * poly.coeff[0] - 4.0 * poly.coeff[1]);
-        std::complex<double>* r = new std::complex<double>[2];
-        r[0] = 0.5 * (-poly.coeff[0] + disc);
-        r[1] = 0.5 * (-poly.coeff[0] - disc);
-        return r;
+        roots[0] = 0.5 * (-poly.coeff[0] + disc);
+        rootChanged(roots[0].real());
+        roots[1] = 0.5 * (-poly.coeff[0] - disc);
+        rootChanged(roots[1].real());
+        return;
     }
-    std::complex<double>* roots = new std::complex<double>[degree];
     BOOST_CONSTEXPR_OR_CONST std::complex<double> startbase(0.6, 0.94);
     roots[0] = 1.;
     for (int i = 1; i < degree; ++i) {
@@ -405,13 +409,14 @@ std::complex<double>* durandkerner(const std::unique_ptr<Polynomial>& _poly, int
         }
         if (diag) std::cerr << std::endl;
     }
-    return roots;
 }
 
 template<bool diag = false, typename T>
 bool polyroot(const std::unique_ptr<Polynomial>& poly, float& root, T rootChanged) {
-    int degree;
-    std::complex<double>* croots = durandkerner<diag>(poly, degree, rootChanged);
+    Poly _poly(poly.get());
+    const int degree = _poly.degree;
+    std::complex<double>* croots = reinterpret_cast<std::complex<double>*>(alloca(sizeof(std::complex<double>)*degree));
+    durandkerner<diag>(_poly, croots, rootChanged);
     bool ok = false;
     for (int i = 0; i < degree; ++i) {
         if (zero(croots[i].imag())) {
@@ -422,7 +427,6 @@ bool polyroot(const std::unique_ptr<Polynomial>& poly, float& root, T rootChange
             }
         }
     }
-    delete[] croots;
     return ok;
 }
 
@@ -470,12 +474,13 @@ inline void analyze(Vector data, int size, float& mean, float& stdev) {
     }
     stdev = std::sqrt(stdev);
 }
-inline void quartile(Vector data, int size, float& q1, float& q3) {
+inline void quantile(Vector data, int size, int which, float& q1, float& q3) {
     Vector v = VECTOR_ALLOC(size);
     std::memcpy(v, data, sizeof(Number)*size);
-    std::sort(v, v+size);
-    q1 = v[size/4];
-    q3 = v[size*3/4];
+    std::nth_element(v, v+size/which, v+size);
+    std::nth_element(v, v+size*(which-1)/which, v+size);
+    q1 = v[size/which];
+    q3 = v[size*(which-1)/which];
     VECTOR_FREE(v);
 }
 
@@ -542,7 +547,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         float min = mean - stdev, max = mean + stdev;
         painter.scale(1, 1.f/qMax(qAbs(max), qAbs(min)));*/
         float q1, q3;
-        quartile(f.get(), tesize, q1, q3);
+        quantile(f.get(), tesize, 12, q1, q3);
         painter.scale(1, 0.5f/qMin(qAbs(q1), qAbs(q3)));
         painter.setPen(QColor(0, 0, 255));
         QPointF lastPoint(0, GSL_NAN);
@@ -565,7 +570,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         float min = mean - stdev, max = mean + stdev;
         painter.scale(1, 1.f/qMax(qAbs(max), qAbs(min)));*/
         float q1, q3;
-        quartile(g.get(), tesize, q1, q3);
+        quantile(g.get(), tesize, 12, q1, q3);
         painter.scale(1, 0.5f/qMin(qAbs(q1), qAbs(q3)));
         painter.setPen(QColor(100, 100, 100));
         QPointF lastPoint(0, GSL_NAN);

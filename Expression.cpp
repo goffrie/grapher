@@ -16,7 +16,7 @@
 #include <iomanip>
 #include <limits>
 
-// #define DEBUG_SIMPLIFY std::cerr << "simplifying at " << __LINE__ << ": " << toString() << std::endl;
+//#define DEBUG_SIMPLIFY std::cerr << "simplifying at " << __LINE__ << " in " << __PRETTY_FUNCTION__ << ": " << toString() << std::endl;
 #define DEBUG_SIMPLIFY
 
 std::string tostr(float f) {
