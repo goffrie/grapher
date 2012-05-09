@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>Graph2DProperties</class>
  <widget class="QGroupBox" name="Graph2DProperties">
@@ -151,7 +151,10 @@
       </widget>
      </item>
      <item>
-      <widget class="QLabel" name="colorLabel">
+      <widget class="QToolButton" name="colorButton">
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
        <property name="text">
         <string/>
        </property>
