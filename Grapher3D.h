@@ -6,6 +6,7 @@
 
 #include "Expression.h"
 #include "Render3D.h"
+#include "align.h"
 
 class QPaintEvent;
 class QResizeEvent;
@@ -16,8 +17,11 @@ class QLabel;
 
 class Grapher3D : public QWidget {
     Q_OBJECT
-    Vector3D boxa, boxb, light;
-    Transform3D baseTransform, rotation, comb;
+    struct AData {
+        Vector3D boxa, boxb, light;
+        Transform3D baseTransform, rotation, comb;
+    };
+    Align<AData> m_a;
 
     bool needsRedraw;
     QTimer* redrawTimer;

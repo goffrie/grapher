@@ -26,11 +26,11 @@ void Graph3D::setupRestart(const Transform3D& t, int width, int height, Vector3D
     cancel();
     m_width = width;
     m_height = height;
-    m_boxa = boxa;
-    m_boxb = boxb;
-    m_light = light;
-    m_transform = t;
-    m_buf = Buffer3D(m_width, m_height, m_transform);
+    m_a->boxa = boxa;
+    m_a->boxb = boxb;
+    m_a->light = light;
+    m_a->transform = t;
+    m_buf = Buffer3D(m_width, m_height, m_a->transform);
     findEyeRay();
     if (m_width > 0 && m_height > 0) {
         startThread();
@@ -38,12 +38,13 @@ void Graph3D::setupRestart(const Transform3D& t, int width, int height, Vector3D
 }
 
 void Graph3D::findEyeRay() {
-    Transform3D inv = m_transform.inverted();
+    Transform3D inv = m_a->transform.inverted();
+    char dummy;
     Vector3D pt1(0,0,1);
     Vector3D pt2(0,0,0);
     pt1 = inv * pt1;
     pt2 = inv * pt2;
-    m_eyeray = (pt2 - pt1).normalized<6>();
+    m_a->eyeray = (pt2 - pt1).normalized<6>();
 //    qDebug() << m_eyeray << (inv * Vector3D(148, 149, -10) - inv * Vector3D(148, 149, 7)).normalized();
 //    Q_ASSERT(qFuzzyCompare((inv * Vector3D(148, 149, -10) - inv * Vector3D(148, 149, 7)).normalized(), m_eyeray));
 }
@@ -64,7 +65,7 @@ void Sphere::startThread() {
     emit updated();
 }
 
-ImplicitGraph3D::ImplicitGraph3D(QObject* parent): Graph3D(parent), tv(Variable::Id("t", Variable::Id::Vector, te)),
+ImplicitGraph3D::ImplicitGraph3D(QObject* parent): Graph3D(parent), tv(Variable::Id("t", Variable::Id::Vector, te->begin())),
 v1x(Variable::Id("v1x", Variable::Id::Constant, &v1[0])),
 v1y(Variable::Id("v1y", Variable::Id::Constant, &v1[1])),
 v1z(Variable::Id("v1z", Variable::Id::Constant, &v1[2])),
@@ -72,9 +73,9 @@ dvx(Variable::Id("dvx", Variable::Id::Constant, &dv[0])),
 dvy(Variable::Id("dvy", Variable::Id::Constant, &dv[1])),
 dvz(Variable::Id("dvz", Variable::Id::Constant, &dv[2]))
 {
-    BOOST_CONSTEXPR_OR_CONST int num = sizeof(te)/sizeof(te[0]);
-    for (int i = 0; i < num; ++i) {
-        te[i] = Number(i) / Number(num);
+    auto& _te = *te;
+    for (int i = 0; i < _te.size(); ++i) {
+        _te[i] = Number(i) / _te.size();
     }
 }
 
@@ -120,9 +121,9 @@ template<typename T> QList<T> range(T a, T b) {
 }
 
 void ImplicitGraph3D::restart() {
-    const Transform3D inv = m_transform.inverted();
+    const Transform3D inv = m_a->transform.inverted();
     m_buf.setColor(m_color.rgba());
-    m_buf.setLight(m_light);
+    m_buf.setLight(m_a->light);
     for (int Y = 0; Y < m_height; ++Y) {
         UVector ox(VECTOR_ALLOC(m_width));
         UVector oy(VECTOR_ALLOC(m_width));
@@ -430,7 +431,7 @@ struct nullfunc { void operator()(...) { } };
 
 bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector ox, Vector oy, Vector oz) {
     Ray ray;
-    if (!rayAtPoint(inv, m_eyeray, py, px, m_boxa, m_boxb, ray)) {
+    if (!rayAtPoint(inv, m_a->eyeray, py, px, m_a->boxa, m_a->boxb, ray)) {
         return false;
     }
     v1[0] = ray.a.x();
@@ -446,7 +447,7 @@ bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector
             return false;
         }
     } else {
-        if (!superbrute(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, nullfunc())) {
+        if (!superbrute(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te->begin(), te->size(), guess, nullfunc())) {
             return false;
         }
     }
@@ -483,7 +484,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
     QPixmap result(size);
     result.fill(Qt::white);
     Ray ray;
-    if (!rayAtPoint(inv, m_eyeray, py, px, m_boxa, m_boxb, ray)) {
+    if (!rayAtPoint(inv, m_a->eyeray, py, px, m_a->boxa, m_a->boxb, ray)) {
         return result;
     }
     QPainter painter(&result);
@@ -504,7 +505,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         painter.scale(1, 0.5);
         painter.translate(0, 1);
     }
-    BOOST_CONSTEXPR_OR_CONST int tesize = sizeof(te)/sizeof(te[0]);
+    BOOST_CONSTEXPR_OR_CONST int tesize = te->size();
     Expression::Subst s;
     Constant _v1x(v1[0]);
     Constant _v1y(v1[1]);
@@ -547,7 +548,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         painter.setPen(QColor(0, 0, 255));
         QPointF lastPoint(0, GSL_NAN);
         for (int i = 0; i < tesize; ++i) {
-            QPointF newPoint(te[i], f[i]);
+            QPointF newPoint((*te)[i], f[i]);
             if (gsl_finite(lastPoint.y())) {
                 painter.drawLine(lastPoint, newPoint);
             } else {
@@ -570,7 +571,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         painter.setPen(QColor(100, 100, 100));
         QPointF lastPoint(0, GSL_NAN);
         for (int i = 0; i < tesize; ++i) {
-            QPointF newPoint(te[i], g[i]);
+            QPointF newPoint((*te)[i], g[i]);
             if (gsl_finite(lastPoint.y())) {
                 painter.drawLine(lastPoint, newPoint);
             } else {
@@ -599,7 +600,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
             qDebug() << "not okay" << guess;
         }
     } else {
-        if (superbrute<true>(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te, sizeof(te)/sizeof(te[0]), guess, fcn)) {
+        if (superbrute<true>(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te->begin(), te->size(), guess, fcn)) {
             fcn(guess);
             qDebug() << "yey" << guess;
         } else {

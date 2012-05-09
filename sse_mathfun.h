@@ -88,7 +88,7 @@ _PS_CONST(cephes_log_p8, + 3.3333331174E-1);
 _PS_CONST(cephes_log_q1, -2.12194440e-4);
 _PS_CONST(cephes_log_q2, 0.693359375);
 
-#if defined (__MINGW32__)
+#if 0 && defined (__MINGW32__)
 
 /* the ugly part below: many versions of gcc used to be completely buggy with respect to some intrinsics
    The movehl_ps is fixed in mingw 3.4.5, but I found out that all the _mm_cmp* intrinsics were completely

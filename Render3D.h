@@ -3,6 +3,7 @@
 
 #include <initializer_list>
 #include <array>
+#include <cstring>
 
 #include <QMatrix4x4>
 #include <QMetaType>
@@ -25,17 +26,54 @@
 #include <smmintrin.h>
 #endif
 
+#include "align.h"
+
+#ifdef ALIGN_TEST
+#include <QMessageBox>
+#include "stacktrace.h"
+
+template<typename T>
+inline void aligncheck(T *_ptr) {
+    int dummy = 0;
+    quintptr ptr = (quintptr) _ptr;
+    if (ptr % alignof(T) != 0) {
+        const static QString msg =
+                "%1 at address 0x%2, minimum alignment 0x%3\n"
+                "Current stack address: 0x%4\n"
+                "Expect a crash";
+        printStack();
+        QMessageBox::critical(0, "Alignment error", msg.arg(
+                           QLatin1String(typeid(*_ptr).name()),
+                           QString::number(ptr, 16),
+                           QString::number(alignof(T), 16),
+                           QString::number((quintptr)&dummy, 16)));
+    }
+}
+#endif
+
 typedef __m128 v4sf;
 #define _mm_shufd(xmm, mask) (_mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(xmm), mask)))
 
 inline BOOST_CONSTEXPR v4sf vec4(float a, float b, float c, float d) {
     return (v4sf){a, b, c, d};
 }
+
 struct Vector3D {
     v4sf v; // { x, y, z, 1 }
+#ifdef ALIGN_TEST
+    Vector3D(float x = 1.f, float y = 1.f, float z = 1.f) {
+        aligncheck(this);
+        v = vec4(x, y, z, 1.f);
+    }
+    Vector3D(v4sf _v) {
+        aligncheck(this);
+        v = _v;
+    }
+#else
     BOOST_CONSTEXPR Vector3D() : v(vec4(0.f, 0.f, 0.f, 1.f)) { }
     BOOST_CONSTEXPR Vector3D(v4sf _v) : v(_v) { }
     BOOST_CONSTEXPR Vector3D(float x, float y, float z) : v(vec4(x, y, z, 1.f)) { }
+#endif
     template<int n> float get() const { return v[n]; }
     template<int n> void set(float w) { v[n] = w; }
     float x() const { return v[0]; }
@@ -51,9 +89,22 @@ struct Vector3D {
     static void newtonSqrtPass(v4sf& invsqrtnv, v4sf& halfnv);
 };
 Q_DECLARE_METATYPE(Vector3D);
+static_assert(alignof(Vector3D)%16==0, "Vector3D must be aligned to a 16-byte boundary");
 
 struct Transform3D {
     std::array<v4sf, 4> rows;
+#ifdef ALIGN_TEST
+    Transform3D(const float f[16]) {
+        aligncheck(this);
+        std::memcpy(rows.begin(), f, sizeof(rows));
+    }
+    Transform3D(std::initializer_list<float> f) : Transform3D(f.begin()) { }
+    Transform3D() : Transform3D((float[])
+       {1.f, 0.f, 0.f, 0.f,
+        0.f, 1.f, 0.f, 0.f,
+        0.f, 0.f, 1.f, 0.f,
+        0.f, 0.f, 0.f, 1.f}) { }
+#else
     BOOST_CONSTEXPR Transform3D(const float f[16]) : rows(
       {{vec4(f[0], f[1], f[2], f[3]),
         vec4(f[4], f[5], f[6], f[7]),
@@ -65,6 +116,7 @@ struct Transform3D {
         vec4(0.f, 1.f, 0.f, 0.f),
         vec4(0.f, 0.f, 1.f, 0.f),
         vec4(0.f, 0.f, 0.f, 1.f)}}) { }
+#endif
     Transform3D inverted() const;
     Transform3D fit(int w, int h, float x1, float x2, float y1, float y2, float z1, float z2) const;
     static Transform3D translator(float dx, float dy, float dz);
@@ -74,6 +126,7 @@ struct Transform3D {
     static Transform3D rotatorZ(float theta);
     const static Transform3D isometricTransform;
 };
+static_assert(alignof(Transform3D)%16==0, "Transform3D must be aligned to a 16-byte boundary");
 Q_DECLARE_METATYPE(Transform3D);
 
 inline v4sf dot4(const Vector3D& a, const Vector3D& b) {
@@ -127,9 +180,15 @@ class Buffer3D {
     std::size_t m_width, m_height;
     QRgb* m_pixels;
     Vector m_zbuffer;
-    Transform3D m_transform;
-    Vector3D m_viewer, m_light, m_half;
-    v4sf m_colorf;
+    struct AData {
+        Transform3D transform;
+        Vector3D viewer, light, half;
+        v4sf colorf;
+        AData() { }
+        AData(const Transform3D& t) : transform(t) { }
+        AData(Transform3D&& t) : transform(t) { }
+    };
+    Align<AData> m_a;
 public:
     Buffer3D();
     Buffer3D(std::size_t w, std::size_t h, Transform3D transform);
@@ -142,7 +201,7 @@ public:
 
     void clear();
 
-    const Transform3D& transform() const { return m_transform; }
+    const Transform3D& transform() const { return m_a->transform; }
 
     void drawTransformPoint(const Vector3D& p, QRgb c);
     void drawTransformLine(const Vector3D& p1, const Vector3D& p2, QRgb c);

@@ -9,27 +9,15 @@
 #include <set>
 #include <string>
 #include <cstdint>
-
 #include <cmath>
+
 #include <gsl/gsl_sf_gamma.h>
 #include <gsl/gsl_sf_psi.h>
-#include <boost/config/suffix.hpp>
+#include <boost/config.hpp>
 
 #include <QMetaType>
 
-#include <malloc.h>
-
-inline void* aligned_malloc(size_t size) {
-    void* pa = malloc(size + 15 + sizeof(void *));
-    if (!pa) return NULL;
-    void* ptr = (void*) ( ((uintptr_t)pa + sizeof(void *) + 15) & (~15) );
-    *((void **)ptr-1) = pa;
-    return ptr;
-}
-
-inline void aligned_free(void* ptr) {
-    if (ptr) free(*((void **)ptr-1));
-}
+#include "align.h"
 
 typedef float Number;
 

@@ -273,10 +273,10 @@ Buffer3D::Buffer3D() : m_width(0), m_height(0), m_pixels(NULL), m_zbuffer(NULL) 
 }
 
 Buffer3D::Buffer3D(std::size_t w, std::size_t h, Transform3D transform) : m_width(w), m_height(h),
-m_pixels((QRgb*) aligned_malloc(((w*h + 3) & ~3)*sizeof(QRgb))), m_zbuffer(VECTOR_ALLOC(w*h)), m_transform(transform) {
+m_pixels((QRgb*) aligned_malloc(((w*h + 3) & ~3)*sizeof(QRgb))), m_zbuffer(VECTOR_ALLOC(w*h)), m_a(transform) {
     clear();
     const v4sf dz = {0.f, 0.f, 1.f, 0.f};
-    m_viewer = (m_transform.inverted() * dz).normalized<6>();
+    m_a->viewer = (m_a->transform.inverted() * dz).normalized<6>();
 }
 
 Buffer3D::~Buffer3D() {
@@ -289,11 +289,7 @@ Buffer3D& Buffer3D::operator=(Buffer3D&& buf) {
     std::swap(m_height, buf.m_height);
     std::swap(m_pixels, buf.m_pixels);
     std::swap(m_zbuffer, buf.m_zbuffer);
-    std::swap(m_transform, buf.m_transform);
-    std::swap(m_viewer, buf.m_viewer);
-    std::swap(m_light, buf.m_light);
-    std::swap(m_half, buf.m_half);
-    std::swap(m_colorf, buf.m_colorf);
+    std::swap(m_a, buf.m_a);
     return *this;
 }
 
@@ -301,10 +297,7 @@ Buffer3D Buffer3D::copy() const {
     Buffer3D r;
     r.m_width = m_width;
     r.m_height = m_height;
-    r.m_transform = m_transform;
-    r.m_viewer = m_viewer;
-    r.m_light = m_light;
-    r.m_half = m_half;
+    r.m_a = m_a;
     const int size = m_width*m_height;
     r.m_pixels = (QRgb*) aligned_malloc(((size + 3) & ~3)*sizeof(QRgb));
     r.m_zbuffer = VECTOR_ALLOC(size);
@@ -326,7 +319,7 @@ void Buffer3D::clear() {
 }
 
 void Buffer3D::drawTransformPoint(const Vector3D& p, QRgb c) {
-    const Vector3D tp = m_transform * p;
+    const Vector3D tp = m_a->transform * p;
     const int x = qRound(tp.x()), y = qRound(tp.y());
     const Number z = tp.z();
     if (x < 0 || x >= m_width || y < 0 || y >= m_height) return;
@@ -347,7 +340,7 @@ void Buffer3D::setPixel(const Vector3D& p, QRgb c) {
 }
 
 void Buffer3D::drawTransformLine(const Vector3D& p1, const Vector3D& p2, QRgb c) {
-    drawLine(m_transform * p1, m_transform * p2, c);
+    drawLine(m_a->transform * p1, m_a->transform * p2, c);
 }
 
 void Buffer3D::drawLine(const Vector3D& p1, const Vector3D& p2, QRgb c) {
@@ -359,14 +352,14 @@ void Buffer3D::drawLine(const Vector3D& p1, const Vector3D& p2, QRgb c) {
 }
 
 void Buffer3D::setColor(QRgb c) {
-    m_colorf = _mm_cvtpu8_ps(_mm_cvtsi32_si64(c));
+    m_a->colorf = _mm_cvtpu8_ps(_mm_cvtsi32_si64(c));
 }
 
 void Buffer3D::setLight(Vector3D light) {
-    m_light = light.normalized<6>();
-    m_half = (m_light + m_viewer).normalized<6>();
-    m_light.v[3] = 0.f;
-    m_half.v[3] = 0.f;
+    m_a->light = light.normalized<6>();
+    m_a->half = (m_a->light + m_a->viewer).normalized<6>();
+    m_a->light.v[3] = 0.f;
+    m_a->half.v[3] = 0.f;
 }
 
 QDebug
@@ -376,7 +369,7 @@ operator<<(QDebug d, v4sf f) {
 }
 
 void Buffer3D::drawTransformLitPoint(Vector3D p, Vector3D normal, int idx) {
-    const Vector3D tp = m_transform * p;
+    const Vector3D tp = m_a->transform * p;
     const Number z = tp.z();
     if (idx == -1) {
         const int x = qRound(tp.x()), y = qRound(tp.y());
@@ -389,13 +382,14 @@ void Buffer3D::drawTransformLitPoint(Vector3D p, Vector3D normal, int idx) {
     static const v4sf zero = {0.f,0.f,0.f,0.f};
     v4sf n = normal.v;
     n[3] = 0;
-    const v4sf _nlvhd = haddps(haddps(n * n, n * m_light.v), haddps(n * m_viewer.v, n * m_half.v)); // { n * n, n * l, n * v, n * h }
+    const AData& a = *m_a;
+    const v4sf _nlvhd = haddps(haddps(n * n, n * a.light.v), haddps(n * a.viewer.v, n * a.half.v)); // { n * n, n * l, n * v, n * h }
     const v4sf rcps_nlvhd = _mm_rsqrt_ps(_nlvhd); // { 1/|n|, 1/sqrt(n*l), 1/sqrt(n*v), 1/sqrt(n*h) }
     const v4sf nlvhd = _mm_xor_ps(_nlvhd, _mm_and_ps(_mm_cmplt_ps(_mm_shuffle_ps(_nlvhd, _nlvhd, 0xAA), zero), (v4sf)invneg)); // invert if n*v < 0
     float lighting = 0.2f; // ambient lighting
     lighting += std::max(rcps_nlvhd[0] * nlvhd[1], 0.f); // diffuse term = n * l / |n||l| = n * l / |n| = cos(theta)
     const v4sf vlighting = _mm_set_ps1(lighting);
-    v4sf litc = vlighting * m_colorf;
+    v4sf litc = vlighting * a.colorf;
     const v4sf rvd = _mm_max_ps(_mm_set_ps1(rcps_nlvhd[0] * nlvhd[3]), zero); // n * h / |n|
     static const v4sf specbase = {150.f, 150.f, 150.f, 0.f};
     const v4sf rvd2 = rvd * rvd;

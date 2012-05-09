@@ -154,7 +154,9 @@ HEADERS += dynamic_unique_cast.h \
            Parser.h \
            util.h \
            Render3D.h \
-           sse_mathfun.h
+           sse_mathfun.h \
+    stacktrace.h \
+    align.h
 FORMS += Graph2DProperties.ui \
          Graph3DProperties.ui \
          MainWindow.ui \
@@ -177,8 +179,9 @@ SOURCES += Expression.cpp \
            main.cpp \
            MainWindow.cpp \
            Parser.cpp \
-           Render3D.cpp
-QMAKE_CXXFLAGS_DEBUG += -ggdb -ffast-math -ftree-vectorize -std=c++0x -march=pentium4 -msse3 -fno-omit-frame-pointer -DBOOST_NO_CONSTEXPR -flax-vector-conversions
-QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -DQT_NO_DEBUG -O3 -ffast-math -ftree-vectorize -std=c++0x -march=pentium4 -msse3 -DBOOST_NO_CONSTEXPR -flax-vector-conversions
+           Render3D.cpp \
+    stacktrace.cpp
+QMAKE_CXXFLAGS_DEBUG += -ggdb -O3 -ffast-math -ftree-vectorize -std=c++0x -march=pentium4 -msse3 -fno-omit-frame-pointer -DBOOST_NO_CONSTEXPR -flax-vector-conversions
+QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -DQT_NO_DEBUG -O3 -ffast-math -ftree-vectorize -std=c++0x -march=pentium4 -msse3 -fno-omit-frame-pointer -DBOOST_NO_CONSTEXPR -flax-vector-conversions
 
-LIBS += "C:\\Documents and Settings\\Generic User\\Desktop\\grapher\\libgsl.a"
+LIBS += "C:\\Documents and Settings\\Generic User\\Desktop\\grapher\\libgsl.a" -ldbghelp

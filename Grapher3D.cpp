@@ -35,7 +35,7 @@ void Grapher3D::mousePressEvent(QMouseEvent* event) {
             if (!graph) continue;
             ImplicitGraph3D* g = dynamic_cast<ImplicitGraph3D*>(graph);
             if (!g) continue;
-            diagnostic->setPixmap(g->diagnostics(comb.inverted(), event->x(), event->y(), diagnostic->size()));
+            diagnostic->setPixmap(g->diagnostics(m_a->comb.inverted(), event->x(), event->y(), diagnostic->size()));
             diagnostic->show();
             return;
         }
@@ -47,10 +47,10 @@ void Grapher3D::mousePressEvent(QMouseEvent* event) {
 void Grapher3D::mouseMoveEvent(QMouseEvent* event) {
     QPoint d = event->pos() - mouse;
     mouse = event->pos();
-    Transform3D left = (rotation * baseTransform);
-    rotation = Transform3D::rotatorY(d.x() * 0.01f) * Transform3D::rotatorX(d.y() * -0.01f) * rotation;
-    Vector3D mid = (boxa + boxb) * 0.5f;
-    light = (rotation * baseTransform).inverted() * (left * (light - mid)) + mid;
+    Transform3D left = (m_a->rotation * m_a->baseTransform);
+    m_a->rotation = Transform3D::rotatorY(d.x() * 0.01f) * Transform3D::rotatorX(d.y() * -0.01f) * m_a->rotation;
+    Vector3D mid = (m_a->boxa + m_a->boxb) * 0.5f;
+    m_a->light = (m_a->rotation * m_a->baseTransform).inverted() * (left * (m_a->light - mid)) + mid;
     resized();
     
     update();
@@ -62,17 +62,17 @@ void Grapher3D::addGraph(QObject* id) {
 }
 
 void Grapher3D::setBox(Vector3D _boxa, Vector3D _boxb) {
-    if (boxa != _boxa || boxb != _boxb) {
-        boxa = _boxa;
-        boxb = _boxb;
+    if (m_a->boxa != _boxa || m_a->boxb != _boxb) {
+        m_a->boxa = _boxa;
+        m_a->boxb = _boxb;
         resized();
         update();
     }
 }
 
 void Grapher3D::setLightSource(Vector3D _light) {
-    if (light != _light) {
-        light = _light;
+    if (m_a->light != _light) {
+        m_a->light = _light;
         resized();
         update();
     }
@@ -80,13 +80,13 @@ void Grapher3D::setLightSource(Vector3D _light) {
 
 
 void Grapher3D::resized() {
-    Vector3D mid = (boxa + boxb) * 0.5f;
-    baseTransform = Transform3D::translator(-mid.x(), -mid.y(), -mid.z()) * Transform3D::isometricTransform;
-    comb = (rotation * baseTransform).fit(width(), height(), boxa.x(), boxb.x(), boxa.y(), boxb.y(), boxa.z(), boxb.z());
+    Vector3D mid = (m_a->boxa + m_a->boxb) * 0.5f;
+    m_a->baseTransform = Transform3D::translator(-mid.x(), -mid.y(), -mid.z()) * Transform3D::isometricTransform;
+    m_a->comb = (m_a->rotation * m_a->baseTransform).fit(width(), height(), m_a->boxa.x(), m_a->boxb.x(), m_a->boxa.y(), m_a->boxb.y(), m_a->boxa.z(), m_a->boxb.z());
 
     foreach (Graph3D* graph, graphs) {
         if (!graph) continue;
-        graph->setupRestart(comb, width(), height(), boxa, boxb, light);
+        graph->setupRestart(m_a->comb, width(), height(), m_a->boxa, m_a->boxb, m_a->light);
     }
 }
 
@@ -98,17 +98,17 @@ void Grapher3D::setShowAxes(bool _showAxes) {
 void Grapher3D::paintEvent(QPaintEvent*) {
     if (width() == 0) return;
     QPainter painter(this);
-    Buffer3D buf(width(), height(), comb);
+    Buffer3D buf(width(), height(), m_a->comb);
     if (showAxes) for (int i = 0; i < 3; ++i) for (int j = 0; j < 2; ++j) for (int k = 0; k < 2; ++k) {
         Vector3D a;
         for (int l = 0, n = j; l < 3; ++l) {
             if (l == i) continue;
-            a.v[l] = (n?boxa:boxb).v[l];
+            a.v[l] = (n?m_a->boxa:m_a->boxb).v[l];
             n = k;
         }
         Vector3D b = a;
-        a.v[i] = boxa.v[i];
-        b.v[i] = boxb.v[i];
+        a.v[i] = m_a->boxa.v[i];
+        b.v[i] = m_a->boxb.v[i];
         buf.drawTransformLine(a, b, Qt::black);
     }
     foreach (Graph3D* graph, graphs) {
@@ -146,7 +146,7 @@ void Grapher3D::changeGraph(QObject* id, Graph3D* graph) {
     graphs[id] = graph;
     graph->setParent(this);
     connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
-    graph->setupRestart(comb, width(), height(), boxa, boxb, light);
+    graph->setupRestart(m_a->comb, width(), height(), m_a->boxa, m_a->boxb, m_a->light);
 }
 
 void Grapher3D::scheduleUpdate(bool now) {
