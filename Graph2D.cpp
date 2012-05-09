@@ -13,7 +13,11 @@
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
 
+#ifdef _WIN32
 #include <malloc.h>
+#else
+#include <alloca.h>
+#endif
 
 #include <xmmintrin.h>
 typedef __m128 v4sf;
@@ -88,7 +92,7 @@ void InequalityGraph::restart() {
     Number ystep = (top - bottom) / m_height;
     QImage _img(m_width, m_height, QImage::Format_ARGB32_Premultiplied);
     QRgb fill = qRgba(m_color.red(), m_color.green(), m_color.blue(), 255);
-	std::function<void(int)> function([this, left, top, xstep, ystep, &_img, fill](int line) -> void {
+        std::function<void(int)> function([this, left, top, xstep, ystep, &_img, fill](int line) -> void {
         if (this->cancelled) return;
         VectorR px = reinterpret_cast<VectorR>(alloca(sizeof(Number) * this->m_width));
         {
