@@ -39,7 +39,6 @@ void Graph3D::setupRestart(const Transform3D& t, int width, int height, Vector3D
 
 void Graph3D::findEyeRay() {
     Transform3D inv = m_a->transform.inverted();
-    char dummy;
     Vector3D pt1(0,0,1);
     Vector3D pt2(0,0,0);
     pt1 = inv * pt1;
