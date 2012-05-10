@@ -47,10 +47,12 @@ void Grapher3D::mousePressEvent(QMouseEvent* event) {
 void Grapher3D::mouseMoveEvent(QMouseEvent* event) {
     QPoint d = event->pos() - mouse;
     mouse = event->pos();
-    Transform3D left = (m_a->rotation * m_a->baseTransform);
-    m_a->rotation = Transform3D::rotatorY(d.x() * 0.01f) * Transform3D::rotatorX(d.y() * -0.01f) * m_a->rotation;
-    Vector3D mid = (m_a->boxa + m_a->boxb) * 0.5f;
-    m_a->light = (m_a->rotation * m_a->baseTransform).inverted() * (left * (m_a->light - mid)) + mid;
+    AData& a = *m_a;
+    Transform3D left = (a.rotation * a.baseTransform);
+    a.rotation = Transform3D::rotatorY(d.x() * 0.01f) * Transform3D::rotatorX(d.y() * -0.01f) * a.rotation;
+    Vector3D mid = (a.boxa + a.boxb) * 0.5f;
+    a.light = (a.rotation * a.baseTransform).inverted() * (left * (a.light - mid)) + mid;
+    emit lightSourceChanged(a.light);
     resized();
     
     update();

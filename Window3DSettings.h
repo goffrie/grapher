@@ -15,6 +15,7 @@ signals:
     void showAxes(bool showAxes);
 public slots:
     void onChanged();
+    void setLight(Vector3D lightPos);
 };
 
 #endif

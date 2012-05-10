@@ -40,6 +40,8 @@ public:
     void addGraph(QObject* id);
     void paintEvent(QPaintEvent* event);
     void resizeEvent(QResizeEvent* event);
+signals:
+    void lightSourceChanged(Vector3D light);
 public slots:
     void setShowAxes(bool showAxes);
     void idDeleted(QObject* id);

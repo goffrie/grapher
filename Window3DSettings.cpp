@@ -25,3 +25,12 @@ void Window3DSettings::onChanged() {
     }
     emit lightChanged(lightPos);
 }
+
+void Window3DSettings::setLight(Vector3D lightPos) {
+    Vector3D _lightPos(lightX->text().toFloat(), lightY->text().toFloat(), lightZ->text().toFloat());
+    if (lightPos != _lightPos) {
+        lightX->setText(QString::number(lightPos.x()));
+        lightY->setText(QString::number(lightPos.y()));
+        lightZ->setText(QString::number(lightPos.z()));
+    }
+}
