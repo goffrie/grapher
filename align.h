@@ -61,10 +61,10 @@ public:
     }
 
     T* addr() {
-        return reinterpret_cast<T*>((reinterpret_cast<uintptr_t>(&buf) + align - 1) & ~(align - 1));
+        return static_cast<T*>(reinterpret_cast<void*>((reinterpret_cast<uintptr_t>(&buf) + align - 1) & ~(align - 1)));
     }
     const T* addr() const {
-        return reinterpret_cast<const T*>((reinterpret_cast<uintptr_t>(&buf) + align - 1) & ~(align - 1));
+        return static_cast<const T*>(reinterpret_cast<const void*>((reinterpret_cast<uintptr_t>(&buf) + align - 1) & ~(align - 1)));
     }
 #endif
 

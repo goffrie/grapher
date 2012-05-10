@@ -126,6 +126,7 @@ template<typename T> QList<T> range(T a, T b) {
 }
 
 void ImplicitGraph3D::restart() {
+    _mm_empty();
     const Transform3D inv = m_a->transform.inverted();
     m_buf.setColor(m_color.rgba());
     m_buf.setLight(m_a->light);
@@ -152,6 +153,7 @@ void ImplicitGraph3D::restart() {
             VectorR vdx = dx->evaluateVector(num);
             VectorR vdy = dy->evaluateVector(num);
             VectorR vdz = dz->evaluateVector(num);
+            _mm_empty();
             for (std::size_t i = 0; i < num; ++i) {
                 m_buf.drawTransformLitPoint(Vector3D(ox[i], oy[i], oz[i]), Vector3D(vdx[i], vdy[i], vdz[i]), opt[i]);
                 if (cancelled) return;

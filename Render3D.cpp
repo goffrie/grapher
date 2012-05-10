@@ -356,14 +356,16 @@ void Buffer3D::setColor(QRgb c) {
 }
 
 void Buffer3D::setLight(Vector3D light) {
-    m_a->light = light.normalized<6>();
-    m_a->half = (m_a->light + m_a->viewer).normalized<6>();
-    m_a->light.v[3] = 0.f;
-    m_a->half.v[3] = 0.f;
+    AData& a = *m_a;
+    a.light = light.normalized<6>();
+    a.half = (a.light + a.viewer).normalized<6>();
+    a.light.v[3] = 0.f;
+    a.half.v[3] = 0.f;
 }
 
+inline
 QDebug
-operator<<(QDebug d, v4sf f) {
+operator<<(QDebug d, const v4sf& f) {
     d.nospace() << '(' << f[0] << ',' << f[1] << ',' << f[2] << ',' << f[3] << ')';
     return d.space();
 }
