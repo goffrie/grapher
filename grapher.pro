@@ -181,7 +181,7 @@ SOURCES += Expression.cpp \
            Parser.cpp \
            Render3D.cpp \
     stacktrace.cpp
-QMAKE_CXXFLAGS_DEBUG += -ggdb -O1 -ffast-math -mfpmath=sse -ftree-vectorize -std=c++0x -march=pentium4 -mno-sse3 -fno-omit-frame-pointer -DBOOST_NO_CONSTEXPR -flax-vector-conversions
-QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -DQT_NO_DEBUG -O3 -ffast-math -mfpmath=sse -ftree-vectorize -std=c++0x -march=pentium4 -mno-sse3 -fno-omit-frame-pointer -DBOOST_NO_CONSTEXPR -flax-vector-conversions
+QMAKE_CXXFLAGS_DEBUG += -ggdb -O1 -ffast-math -mfpmath=sse -ftree-vectorize -std=c++0x -march=pentium4 -mno-sse3 -fno-omit-frame-pointer -DBOOST_NO_CONSTEXPR
+QMAKE_CXXFLAGS_RELEASE += -DNDEBUG -DQT_NO_DEBUG -O3 -ffast-math -mfpmath=sse -ftree-vectorize -std=c++0x -march=pentium4 -mno-sse3 -fno-omit-frame-pointer -DBOOST_NO_CONSTEXPR
 
 LIBS += "C:\\Documents and Settings\\Generic User\\Desktop\\grapher\\libgsl.a" -ldbghelp

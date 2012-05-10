@@ -397,9 +397,9 @@ void Buffer3D::drawTransformLitPoint(Vector3D p, Vector3D normal, int idx) {
     const v4sf rvd2 = rvd * rvd;
     const v4sf rvd4 = rvd2 * rvd2;
     litc += specbase * rvd4 * rvd4;
-    const __v4si litcw = _mm_cvttps_epi32(litc);
+    const __m128i litcw = _mm_cvttps_epi32(litc);
     const __m128i litcw16 = _mm_packs_epi32(litcw, litcw);
-    const __v4si litcw8 = _mm_packus_epi16(litcw16, litcw16);
+    const __v4si litcw8 = (__v4si) _mm_packus_epi16(litcw16, litcw16);
     m_pixels[idx] = litcw8[0] | 0xff000000;
 }
 
