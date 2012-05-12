@@ -30,6 +30,7 @@ Grapher3D::~Grapher3D() {
 }
 
 void Grapher3D::mousePressEvent(QMouseEvent* event) {
+    mouse = event->pos();
     if (diagnostic) {
         foreach (Graph3D* graph, graphs) {
             if (!graph) continue;
@@ -40,7 +41,6 @@ void Grapher3D::mousePressEvent(QMouseEvent* event) {
             return;
         }
     }
-    mouse = event->pos();
     QWidget::mousePressEvent(event);
 }
 
