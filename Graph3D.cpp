@@ -511,7 +511,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         painter.scale(1, 0.5);
         painter.translate(0, 1);
     }
-    BOOST_CONSTEXPR_OR_CONST int tesize = te->size();
+    BOOST_CONSTEXPR_OR_CONST int tesize = std::tuple_size<typeof(*te)>::value;
     Expression::Subst s;
     Constant _v1x(v1[0]);
     Constant _v1y(v1[1]);
