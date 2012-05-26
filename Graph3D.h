@@ -30,15 +30,6 @@ public:
     virtual const Buffer3D& buf() { return m_buf; }
 };
 
-class Sphere : public Graph3D {
-    Q_OBJECT
-public:
-    Sphere(QObject* parent = 0);
-    virtual void cancel();
-protected:
-    virtual void startThread();
-};
-
 class ImplicitGraph3D : public Graph3D {
     Q_OBJECT
 private:

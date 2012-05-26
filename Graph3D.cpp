@@ -54,22 +54,6 @@ void Graph3D::findEyeRay() {
 //    Q_ASSERT(qFuzzyCompare((inv * Vector3D(148, 149, -10) - inv * Vector3D(148, 149, 7)).normalized(), m_eyeray));
 }
 
-Sphere::Sphere(QObject* parent): Graph3D(parent) {
-}
-
-void Sphere::cancel() {
-}
-
-void Sphere::startThread() {
-    for (float theta = 0; theta <= M_PI; theta += 0.01f) {
-        for (float phi = 0; phi <= M_PI*2; phi += 0.01f) {
-            Vector3D p(std::sin(theta)*std::cos(phi), std::sin(theta)*std::sin(phi), std::cos(theta));
-//            m_buf.drawTransformLitPoint(p, qRgba(0, 200, 0, 255), p, Vector3D(1, 1, 1));
-        }
-    }
-    emit updated();
-}
-
 ImplicitGraph3D::ImplicitGraph3D(QObject* parent): Graph3D(parent), tv(Variable::Id("t", Variable::Id::Vector, te->begin())),
 v1x(Variable::Id("v1x", Variable::Id::Constant, &v1[0])),
 v1y(Variable::Id("v1y", Variable::Id::Constant, &v1[1])),
