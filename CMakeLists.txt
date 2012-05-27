@@ -5,9 +5,25 @@ project(grapher)
 find_package(Qt4 REQUIRED)
 find_package(GSL REQUIRED)
 
+set(asmjit_SOURCES
+    AsmJit/AssemblerX86X64.cpp
+    AsmJit/CodeGenerator.cpp
+    AsmJit/Compiler.cpp
+    AsmJit/CompilerX86X64.cpp
+    AsmJit/CpuInfo.cpp
+    AsmJit/Defs.cpp
+    AsmJit/DefsX86X64.cpp
+    AsmJit/Logger.cpp
+    AsmJit/MemoryManager.cpp
+    AsmJit/MemoryMarker.cpp
+    AsmJit/OperandX86X64.cpp
+    AsmJit/Platform.cpp
+    AsmJit/Util.cpp)
+
 set(grapher_SOURCES
     main.cpp
     Expression.cpp
+    Expression_jit.cpp
     Graph.cpp
     Graph2D.cpp
     Graph3D.cpp
@@ -23,6 +39,7 @@ set(grapher_SOURCES
     UI3DFactory.cpp
     UI.cpp
     Render3D.cpp
+    ${asmjit_SOURCES}
 )
 set(grapher_HEADERS
     Expression.h
