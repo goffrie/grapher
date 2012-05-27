@@ -41,6 +41,9 @@ private:
     std::unique_ptr<Polynomial> polyrayfunc;
     EPtr d_rayfunc;
     EPtr dx, dy, dz;
+    std::vector<WEvalFunc> polyrayfunc_e;
+    WEvalFunc rayfunc_e[3];
+    WVectorFunc rayfunc_v, d_rayfunc_v;
 
     UVector line;
 
@@ -48,6 +51,7 @@ private:
     bool cancelled;
 public:
     ImplicitGraph3D(QObject* parent = 0);
+    ~ImplicitGraph3D();
     void reset(std::unique_ptr<Equation> rel, const Variable& x, const Variable& y, const Variable& z);
     QPixmap diagnostics(const Transform3D& inv, int px, int py, QSize size);
 protected:

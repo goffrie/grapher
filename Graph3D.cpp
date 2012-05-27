@@ -24,6 +24,8 @@
 #include <alloca.h>
 #endif
 
+#include <AsmJit/AsmJit.h>
+
 Graph3D::Graph3D(QObject* parent) : Graph(parent) {
 
 }
@@ -68,6 +70,9 @@ dvz(Variable::Id("dvz", Variable::Id::Constant, &dv[2]))
     }
 }
 
+ImplicitGraph3D::~ImplicitGraph3D() {
+}
+
 void ImplicitGraph3D::cancel() {
     cancelled = true;
     future.waitForFinished();
@@ -89,10 +94,24 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     rayfunc[0] = func->substitute(s)->simplify();
     if (rayfunc[0]->polynomial(tv)) {
         polyrayfunc = rayfunc[0]->expand()->facsum(tv);
+        Polynomial* poly = static_cast<Polynomial*>(polyrayfunc.get());
+        int d = poly->degree();
+        polyrayfunc_e.resize(d);
+        for (int i = d; i--; ) {
+            polyrayfunc_e[i+1] = poly->right->evaluator();
+            poly = poly->left.get();
+            Q_ASSERT(poly);
+        }
+        polyrayfunc_e[0] = poly->right->evaluator();
     }
     rayfunc[1] = rayfunc[0]->derivative(tv)->simplify();
     rayfunc[2] = rayfunc[1]->derivative(tv)->simplify();
+    for (int i : (int[]){0, 1, 2}) {        
+        rayfunc_e[i] = rayfunc[i]->evaluator();
+    }
+    rayfunc_v = rayfunc[0]->evaluatorVector();
     d_rayfunc = (rayfunc[0]->ecopy() / rayfunc[1]->ecopy())->simplify();
+    d_rayfunc_v = d_rayfunc->evaluatorVector();
     dx = func->derivative(x)->simplify();
     dy = func->derivative(y)->simplify();
     dz = func->derivative(z)->simplify();
@@ -226,27 +245,27 @@ inline bool zero_wrt(float n, float d) {
     return zero(n / (std::fabs(d)+1));
 }
 
-template<typename T> bool newton(const EPtr& f, const EPtr& g, const Variable& tv, Number& guess, T& guessChanged) {
+template<typename T> bool newton(const WEvalFunc& f, const WEvalFunc& g, const Variable& tv, Number& guess, T& guessChanged) {
     int iterations = 10;
     float d;
     while (iterations--) {
-        guess -= (d = f->evaluate())/g->evaluate();
+        guess -= (d = f())/g();
         guessChanged(guess);
     }
-    Number v = f->evaluate();
+    Number v = f();
     return gsl_finite(guess) && gsl_finite(v) && zero_wrt(v, d);
 }
 
-template<bool diag, typename T> bool halley(const EPtr& f, const EPtr& g, const EPtr& h, const Variable& tv, Number& guess, T& guessChanged) {
+template<bool diag, typename T> bool halley(const WEvalFunc& f, const WEvalFunc& g, const WEvalFunc& h, const Variable& tv, Number& guess, T& guessChanged) {
     int iterations = 5;
     float G;
     while (iterations--) {
-        Number F = f->evaluate(), H = h->evaluate();
-        G = g->evaluate();
+        Number F = f(), H = h();
+        G = g();
         guess -= F * G / (G * G - 0.5f * F * H);
         guessChanged(guess);
     }
-    Number v = f->evaluate();
+    Number v = f();
     if (gsl_finite(guess)) {
         if (gsl_finite(v)) {
             if (zero_wrt(v, G)) {
@@ -264,9 +283,14 @@ template<bool diag, typename T> bool halley(const EPtr& f, const EPtr& g, const 
     return false;
 }
 
-template<bool diag = false, typename T> bool superbrute(const EPtr& f, const EPtr& g, const EPtr& h, const EPtr& j, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
-    UVector v(f->evaluateVector(size));
-    UVector w(g->evaluateVector(size));
+template<bool diag = false, typename T> bool superbrute(const WVectorFunc& f, const WVectorFunc& gv, const WEvalFunc& g, const WEvalFunc& h, const WEvalFunc& j, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
+    Vector v = (Vector)alloca(sizeof(float)*size);
+    Vector w = (Vector)alloca(sizeof(float)*size);
+    __v4sf *_v = reinterpret_cast<__v4sf*>(v), *_w = reinterpret_cast<__v4sf*>(w);
+    for (int i = 0; i < size; i += 4) {
+        *_v++ = f(i);
+        *_w++ = gv(i);
+    }
     int last = 0;
     const float maxdelta = 10.f / size;
     for (int i = 0; i < size; ++i) {
@@ -311,21 +335,16 @@ template<bool diag = false, typename T> bool superbrute(const EPtr& f, const EPt
 struct Poly {
     int degree;
     double* coeff;
-    Poly(Polynomial* poly) {
-        degree = poly->degree();
+    Poly(const std::vector<WEvalFunc>& poly_coeff) {
+        degree = poly_coeff.size();
         coeff = new double[degree];
-        for (int i = degree; i--; ) {
-            coeff[i] = poly->right->evaluate();
-            poly = poly->left.get();
-            Q_ASSERT(poly);
-        }
-        double factor = 1. / poly->right->evaluate();
-        for (int i = degree; i--; ) {
-            coeff[i] *= factor;
+        double factor = 1. / poly_coeff[0]();
+        for (int i = 0; i < degree; ++i) {
+            coeff[i] = factor * poly_coeff[i+1]();
         }
     }
     ~Poly() {
-        delete coeff;
+        delete[] coeff;
     }
     template<typename T> std::complex<T> evaluate(std::complex<T> x) const {
         if (degree == 0) return x;
@@ -398,8 +417,8 @@ void durandkerner(const Poly& poly, std::complex<double>* roots, T rootChanged) 
 }
 
 template<bool diag = false, typename T>
-bool polyroot(const std::unique_ptr<Polynomial>& poly, float& root, T rootChanged) {
-    Poly _poly(poly.get());
+bool polyroot(const std::vector<WEvalFunc>& poly_coeff, float& root, T rootChanged) {
+    Poly _poly(poly_coeff);
     const int degree = _poly.degree;
     std::complex<double>* croots = reinterpret_cast<std::complex<double>*>(alloca(sizeof(std::complex<double>)*degree));
     durandkerner<diag>(_poly, croots, rootChanged);
@@ -432,11 +451,11 @@ bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector
     dv[2] = _dv.z();
     Number guess = 0;
     if (polyrayfunc.get()) {
-        if (!polyroot(polyrayfunc, guess, nullfunc())) {
+        if (!polyroot(polyrayfunc_e, guess, nullfunc())) {
             return false;
         }
     } else {
-        if (!superbrute(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te->begin(), te->size(), guess, nullfunc())) {
+        if (!superbrute(d_rayfunc_v, rayfunc_v, rayfunc_e[0], rayfunc_e[1], rayfunc_e[2], tv, te->begin(), te->size(), guess, nullfunc())) {
             return false;
         }
     }
@@ -495,7 +514,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         painter.scale(1, 0.5);
         painter.translate(0, 1);
     }
-    BOOST_CONSTEXPR_OR_CONST int tesize = std::tuple_size<typeof(*te)>::value;
+    BOOST_CONSTEXPR_OR_CONST int tesize = std::tuple_size<std::remove_reference<decltype(*te)>::type>::value;
     Expression::Subst s;
     Constant _v1x(v1[0]);
     Constant _v1y(v1[1]);
@@ -584,13 +603,13 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
     });
     Number guess = 0;
     if (polyrayfunc.get()) {
-        if (polyroot<true>(polyrayfunc, guess, fcn)) {
+        if (polyroot<true>(polyrayfunc_e, guess, fcn)) {
             qDebug() << "yey" << guess;
         } else {
             qDebug() << "not okay" << guess;
         }
     } else {
-        if (superbrute<true>(d_rayfunc, rayfunc[0], rayfunc[1], rayfunc[2], tv, te->begin(), te->size(), guess, fcn)) {
+        if (superbrute<true>(d_rayfunc_v, rayfunc_v, rayfunc_e[0], rayfunc_e[1], rayfunc_e[2], tv, te->begin(), te->size(), guess, fcn)) {
             fcn(guess);
             qDebug() << "yey" << guess;
         } else {

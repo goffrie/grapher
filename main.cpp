@@ -28,19 +28,19 @@ int main(int argc, char *argv[]) {
     vars.insert(std::make_pair(std::string("y"), &y));
     vars.insert(std::make_pair(std::string("z"), &z));
     vars.insert(std::make_pair(std::string("t"), &t));
-    {
+    if (0) {
         std::string s = "x + y * z^4";
         x.id->type = y.id->type = z.id->type = Variable::Id::Constant;
-        float _x = 2, _y = 3, _z = 5;
-        x.id->p = &_x;
-        y.id->p = &_y;
-        z.id->p = &_z;
+        float* _x = new float(2), *_y = new float(3), *_z = new float(5);
+        x.id->p = _x;
+        y.id->p = _y;
+        z.id->p = _z;
         std::unique_ptr<Thing> p = Parser::parse(s, vars);
         std::cout << p->toString() << std::endl;
         EPtr q = dynamic_unique_cast<Expression>(std::move(p));
         EvalFunc e = q->evaluator();
-        __v4sf r = e(0);
-        std::cout << r[0] << endl;
+        double r = e();
+        std::cout << r << std::endl;
         return 0;
     }
     while (false) {
