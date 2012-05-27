@@ -529,7 +529,7 @@ EPtr Cos::derivative(const Variable& var) const {
 }
 // dtan(u)/dx = dtan(u)/du * du/dx = (1 + tan^2(u)) * du/dx
 EPtr Tan::derivative(const Variable& var) const {
-    return (Constant::create(1) + PowInt::create(Tan::create(a->ecopy()), 2)) * a->derivative(var);
+    return (PowInt::create(Cos::create(a->ecopy()), -2)) * a->derivative(var);
 }
 // d asin(u)/dx = d asin(u) / du * du/dx = (du/dx)/sqrt(1 - u^2)
 EPtr Asin::derivative(const Variable& var) const {
