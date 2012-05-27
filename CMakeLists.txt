@@ -22,6 +22,7 @@ set(asmjit_SOURCES
 
 set(grapher_SOURCES
     main.cpp
+    sse_mathfun.cpp
     Expression.cpp
     Expression_jit.cpp
     Graph.cpp

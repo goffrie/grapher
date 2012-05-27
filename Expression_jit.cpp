@@ -3,6 +3,8 @@
 #include <mmintrin.h>
 #include <xmmintrin.h>
 
+#include "sse_mathfun.h"
+
 using namespace AsmJit;
 
 static_assert(sizeof(sysint_t) == sizeof(void*), "sysint_t has the wrong size");
@@ -61,15 +63,30 @@ XMMVar Neg::evaluate(Compiler& c) const {
     return ret;
 }
 
+typedef double (*UnaryDoubleFunc)(double);
+typedef double (*BinaryDoubleFunc)(double, double);
+typedef double (*IntDoubleFunc)(int, double);
+
+#define CALL_UNARY(func, arg, ret) \
+    GPVar addr = c.newGP(); \
+    c.mov(addr, imm((sysint_t)UnaryDoubleFunc(&func))); \
+    ECall* ctx = c.call(addr); \
+    c.unuse(addr); \
+    ctx->setPrototype(CALL_CONV_DEFAULT, FunctionBuilder1<double, double>()); \
+    XMMVar ret = c.newXMM(); \
+    ctx->setArgument(0, arg); \
+    ctx->setReturn(ret); \
+    c.unuse(arg);
+
 XMMVar Exp::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    XMMVar _a = a->evaluate(c);
+    CALL_UNARY(std::exp, _a, ret);
     return ret;
 }
 
 XMMVar Ln::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    XMMVar _a = a->evaluate(c);
+    CALL_UNARY(std::log, _a, ret);
     return ret;
 }
 
@@ -80,44 +97,44 @@ XMMVar Sqrt::evaluate(Compiler& c) const {
 }
 
 XMMVar Sin::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    XMMVar _a = a->evaluate(c);
+    CALL_UNARY(std::sin, _a, ret);
     return ret;
 }
 
 XMMVar Cos::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    XMMVar _a = a->evaluate(c);
+    CALL_UNARY(std::cos, _a, ret);
     return ret;
 }
 
 XMMVar Tan::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    XMMVar _a = a->evaluate(c);
+    CALL_UNARY(std::tan, _a, ret);
     return ret;
 }
 
 XMMVar Asin::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    XMMVar _a = a->evaluate(c);
+    CALL_UNARY(std::asin, _a, ret);
     return ret;
 }
 
 XMMVar Acos::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    XMMVar _a = a->evaluate(c);
+    CALL_UNARY(std::acos, _a, ret);
     return ret;
 }
 
 XMMVar Atan::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    XMMVar _a = a->evaluate(c);
+    CALL_UNARY(std::atan, _a, ret);
     return ret;
 }
 
 XMMVar Gamma::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    XMMVar _a = a->evaluate(c);
+    CALL_UNARY(gsl_sf_gamma, _a, ret);
     return ret;
 }
 
@@ -215,14 +232,32 @@ XMMVar Polynomial::evaluate(Compiler& c) const {
 }
 
 XMMVar Pow::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
-    return ret;
+    XMMVar _a = a->evaluate(c),
+           _b = b->evaluate(c);
+    GPVar addr = c.newGP();
+    c.mov(addr, imm((sysint_t)BinaryDoubleFunc(&std::pow)));
+    ECall* ctx = c.call(addr);
+    c.unuse(addr);
+    ctx->setPrototype(CALL_CONV_DEFAULT, FunctionBuilder2<double, double, double>());
+    XMMVar ret = c.newXMM();
+    ctx->setArgument(0, _a);
+    ctx->setArgument(1, _b);
+    ctx->setReturn(ret);
+    c.unuse(_a);
+    c.unuse(_b);
+    return _b;
 }
 
 XMMVar PolyGamma::evaluate(Compiler& c) const {
     XMMVar ret = a->evaluate(c);
-    throw "Not implemented";
+    GPVar addr = c.newGP();
+    c.mov(addr, imm((sysint_t)IntDoubleFunc(&gsl_sf_psi_n)));
+    ECall* ctx = c.call(addr);
+    c.unuse(addr);
+    ctx->setPrototype(CALL_CONV_DEFAULT, FunctionBuilder2<double, int, double>());
+    ctx->setArgument(0, imm(b));
+    ctx->setArgument(1, ret);
+    ctx->setReturn(ret);
     return ret;
 }
 
@@ -291,15 +326,26 @@ XMMVar Neg::evaluateVector(Compiler& c, const GPVar& i) const {
     return ret;
 }
 
+#define CALL_SSE(func, arg, ret) \
+    GPVar addr = c.newGP(); \
+    c.mov(addr, imm((sysint_t)(&func))); \
+    ECall* ctx = c.call(addr); \
+    c.unuse(addr); \
+    ctx->setPrototype(CALL_CONV_DEFAULT, FunctionBuilder1<float, float>()); /* HACK */ \
+    XMMVar ret = c.newXMM(); \
+    ctx->setArgument(0, arg); \
+    ctx->setReturn(ret); \
+    c.unuse(arg);
+
 XMMVar Exp::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
+    XMMVar _a = a->evaluateVector(c, i);
+    CALL_SSE(exp_ps, _a, ret);
     return ret;
 }
 
 XMMVar Ln::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
+    XMMVar _a = a->evaluateVector(c, i);
+    CALL_SSE(log_ps, _a, ret);
     return ret;
 }
 
@@ -310,22 +356,24 @@ XMMVar Sqrt::evaluateVector(Compiler& c, const GPVar& i) const {
 }
 
 XMMVar Sin::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
+    XMMVar _a = a->evaluateVector(c, i);
+    CALL_SSE(sin_ps, _a, ret);
     return ret;
 }
 
 XMMVar Cos::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
+    XMMVar _a = a->evaluateVector(c, i);
+    CALL_SSE(cos_ps, _a, ret);
     return ret;
 }
 
 XMMVar Tan::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
+    XMMVar _a = a->evaluateVector(c, i);
+    CALL_SSE(tan_ps, _a, ret);
     return ret;
 }
+
+#define CALL_UNARY_VECTOR(func, arg, ret)
 
 XMMVar Asin::evaluateVector(Compiler& c, const GPVar& i) const {
     XMMVar ret = a->evaluateVector(c, i);

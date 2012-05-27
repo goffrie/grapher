@@ -120,11 +120,6 @@ UNARY_VECTOR_EVALUATE(Ln, log_ps)
 UNARY_VECTOR_EVALUATE(Exp, exp_ps)
 UNARY_VECTOR_EVALUATE(Sin, sin_ps)
 UNARY_VECTOR_EVALUATE(Cos, cos_ps)
-inline v4sf tan_ps(v4sf x) {
-    v4sf sin, cos;
-    sincos_ps(x, &sin, &cos);
-    return sin / cos;
-}
 UNARY_VECTOR_EVALUATE(Tan, tan_ps)
 
 #undef UNARY_VECTOR_EVALUATE
