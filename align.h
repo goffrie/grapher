@@ -3,10 +3,11 @@
 
 #include <cstdlib>
 #include <cstdint>
+#include <new>
 
 inline void* aligned_malloc(size_t size) {
     void* pa = std::malloc(size + 15 + sizeof(void *));
-    if (!pa) return NULL;
+    if (!pa) throw std::bad_alloc();
     void* ptr = (void*) ( ((uintptr_t)pa + sizeof(void *) + 15) & (~15) );
     *((void **)ptr-1) = pa;
     return ptr;
