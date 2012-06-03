@@ -106,7 +106,7 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     }
     rayfunc[1] = rayfunc[0]->derivative(tv)->simplify();
     rayfunc[2] = rayfunc[1]->derivative(tv)->simplify();
-    for (int i : (int[]){0, 1, 2}) {        
+    for (int i = 0; i < 3; ++i) {
         rayfunc_e[i] = rayfunc[i]->evaluator();
     }
     rayfunc_v = rayfunc[0]->evaluatorVector();
