@@ -39,7 +39,7 @@ void printStack() {
 
 
 void printStack() {
-    printf("TODO: stack trace")
+    printf("TODO: stack trace");
 }
 
 #endif
