@@ -126,7 +126,7 @@ _PS_CONST(cephes_exp_p4, 1.6666665459E-1);
 _PS_CONST(cephes_exp_p5, 5.0000001201E-1);
 
 v4sf exp_ps(v4sf x) {
-  v4sf tmp = _mm_setzero_ps(), fx;
+  v4sf tmp, fx;
   v4si emm0;
   v4sf one = *(v4sf*)_ps_1;
 
@@ -219,7 +219,7 @@ _PS_CONST(cephes_FOPI, 1.27323954473516); // 4 / M_PI
    deliver full speed.
 */
 v4sf sin_ps(v4sf x) { // any x
-  v4sf xmm1, xmm2 = _mm_setzero_ps(), xmm3, sign_bit, y;
+  v4sf xmm1, xmm2, xmm3, sign_bit, y;
 
   v4si emm0, emm2;
   sign_bit = x;
@@ -304,7 +304,7 @@ v4sf sin_ps(v4sf x) { // any x
 
 /* almost the same as sin_ps */
 v4sf cos_ps(v4sf x) { // any x
-  v4sf xmm1, xmm2 = _mm_setzero_ps(), xmm3, y;
+  v4sf xmm1, xmm2, xmm3, y;
   v4si emm0, emm2;
   /* take the absolute value */
   x = _mm_and_ps(x, *(v4sf*)_ps_inv_sign_mask);
@@ -382,7 +382,7 @@ v4sf cos_ps(v4sf x) { // any x
 /* since sin_ps and cos_ps are almost identical, sincos_ps could replace both of them..
    it is almost as fast, and gives you a free cosine with your sine */
 void sincos_ps(v4sf x, v4sf *s, v4sf *c) {
-  v4sf xmm1, xmm2, xmm3 = _mm_setzero_ps(), sign_bit_sin, y;
+  v4sf xmm1, xmm2, xmm3, sign_bit_sin, y;
   v4si emm0, emm2, emm4;
   sign_bit_sin = x;
   /* take the absolute value */
@@ -476,7 +476,7 @@ void sincos_ps(v4sf x, v4sf *s, v4sf *c) {
 
 /* same as above but divides */
 v4sf tan_ps(v4sf x) {
-  v4sf xmm1, xmm2, xmm3 = _mm_setzero_ps(), sign_bit_sin, y;
+  v4sf xmm1, xmm2, xmm3, sign_bit_sin, y;
   v4si emm0, emm2, emm4;
   sign_bit_sin = x;
   /* take the absolute value */
