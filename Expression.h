@@ -160,7 +160,7 @@ struct Variable : public Expression {
     std::unique_ptr<Polynomial> facsum(const Variable& var) const;
     bool operator==(const Variable& b) const { return id == b.id; }
     bool operator!=(const Variable& b) const { return id != b.id; }
-    friend bool operator<(const Variable& a, const Variable& b) { return a.id < b.id; }
+    friend bool operator<(const Variable& a, const Variable& b) { return a.id.get() < b.id.get(); }
     std::string toString(int prec = -1) const { return *id; }
 };
 Q_DECLARE_METATYPE(Variable);
