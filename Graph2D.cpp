@@ -262,6 +262,8 @@ QImage ImplicitGraph::iterate() {
     return downsample(draw());
 }
 
+BOOST_CONSTEXPR_OR_CONST std::size_t ParametricGraph::numPts;
+
 ParametricGraph::ParametricGraph(QObject* parent): IteratingGraph(parent), pts(VECTOR_ALLOC(numPts)) {
 }
 
@@ -309,7 +311,7 @@ QImage ParametricGraph::iterate() {
     if (cancelled) return QImage();
     for (int i = 0; i < numPts; ++i) pts[i] = distribution(engine);
     if (cancelled) return QImage();
-    QFuture<Vector> fy = QtConcurrent::run(y.get(), &Expression::evaluateVector, (std::size_t)numPts);
+    QFuture<Vector> fy = QtConcurrent::run(y.get(), &Expression::evaluateVector, numPts);
     UVector vx(x->evaluateVector(numPts));
     fy.waitForFinished();
     UVector vy(fy.result());

@@ -13,6 +13,8 @@
 #include "dynamic_unique_cast.h"
 #include "util.h"
 
+using std::move;
+
 static int nextColor = 0;
 static std::set<int> recoveredColors;
 
@@ -71,22 +73,20 @@ void Graph3DProperties::textChanged() {
             if (eqn) {
                 setErrorMsg(QString());
                 ImplicitGraph3D* graph = new ImplicitGraph3D;
-                graph->reset(std::move(eqn), x, y, z);
+                graph->reset(::move(eqn), x, y, z);
                 graph->setColor(getColor(color));
                 emit graphChanged(this, graph);
             } else {
                 throw InvalidInputException("Didn't get an equation!");
             }
         } else if (current == parametric_tab) {
-            throw InvalidInputException("3D parametric graphs aren't implemented yet!");
-#if 0
             double tMin = par_tMin->text().toDouble(), tMax = par_tMax->text().toDouble();
             if (tMax <= tMin || !par_tMin->text().size() || !par_tMax->text().size()) {
-                throw InvalidInputException("Bad interval!");
+                throw InvalidInputException("Bad interval for t!");
             }
             double uMin = par_uMin->text().toDouble(), uMax = par_uMax->text().toDouble();
             if (uMax <= uMin || !par_uMin->text().size() || !par_uMax->text().size()) {
-                throw InvalidInputException("Bad interval!");
+                throw InvalidInputException("Bad interval for u!");
             }
             Variable t("t"), u("u");
             vars.insert(std::make_pair<std::string, Expression*>("t", &t));
@@ -104,11 +104,10 @@ void Graph3DProperties::textChanged() {
                 throw InvalidInputException("z(t) isn't a function!");
             }
             setErrorMsg(QString());
-            ParametricGraph* graph = new ParametricGraph;
-            graph->reset(std::move(ex), std::move(ey), t, tMin, tMax);
+            ParametricGraph3D* graph = new ParametricGraph3D;
+            graph->reset(::move(ex), ::move(ey), ::move(ez), t, u, tMin, tMax, uMin, uMax);
             graph->setColor(getColor(color));
             emit graphChanged(this, graph);
-#endif
         } else {
             qDebug() << "Unknown tab?";
         }

@@ -32,7 +32,7 @@
       </sizepolicy>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="relation_tab">
       <attribute name="title">
@@ -70,7 +70,7 @@
        <item row="1" column="0">
         <widget class="QLabel" name="xLabel">
          <property name="text">
-          <string>x(t) =</string>
+          <string>x(t,u) =</string>
          </property>
         </widget>
        </item>
@@ -80,7 +80,7 @@
        <item row="3" column="0">
         <widget class="QLabel" name="yLabel">
          <property name="text">
-          <string>y(t) =</string>
+          <string>y(t,u) =</string>
          </property>
         </widget>
        </item>
@@ -90,7 +90,7 @@
        <item row="4" column="0">
         <widget class="QLabel" name="zLabel">
          <property name="text">
-          <string>z(t) =</string>
+          <string>z(t,u) =</string>
          </property>
         </widget>
        </item>
@@ -261,12 +261,16 @@
  </widget>
  <tabstops>
   <tabstop>graphTypeSwitcher</tabstop>
-  <tabstop>rel_equation</tabstop>
   <tabstop>par_x</tabstop>
   <tabstop>par_y</tabstop>
+  <tabstop>par_z</tabstop>
   <tabstop>par_tMin</tabstop>
   <tabstop>par_tMax</tabstop>
+  <tabstop>par_uMin</tabstop>
+  <tabstop>par_uMax</tabstop>
+  <tabstop>rel_equation</tabstop>
   <tabstop>deleteButton</tabstop>
+  <tabstop>colorButton</tabstop>
  </tabstops>
  <resources/>
  <connections>
@@ -389,7 +393,7 @@
    <slot>textChanged()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>212</x>
+     <x>205</x>
      <y>165</y>
     </hint>
     <hint type="destinationlabel">
@@ -421,7 +425,7 @@
    <slot>textChanged()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>439</x>
+     <x>357</x>
      <y>165</y>
     </hint>
     <hint type="destinationlabel">

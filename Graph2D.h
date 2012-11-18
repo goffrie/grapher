@@ -94,7 +94,7 @@ class ParametricGraph : public IteratingGraph {
     std::uniform_real_distribution<Number> distribution;
     std::mt19937 engine;
     UVector pts;
-    BOOST_CONSTEXPR_OR_CONST static std::size_t numPts = 16384;
+    BOOST_STATIC_CONSTEXPR std::size_t numPts = 16384;
     QImage _img;
 
     void draw(Vector vx, Vector vy);
