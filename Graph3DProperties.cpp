@@ -13,8 +13,6 @@
 #include "dynamic_unique_cast.h"
 #include "util.h"
 
-using std::move;
-
 static int nextColor = 0;
 static std::set<int> recoveredColors;
 
@@ -73,7 +71,7 @@ void Graph3DProperties::textChanged() {
             if (eqn) {
                 setErrorMsg(QString());
                 ImplicitGraph3D* graph = new ImplicitGraph3D;
-                graph->reset(::move(eqn), x, y, z);
+                graph->reset(std::move(eqn), x, y, z);
                 graph->setColor(getColor(color));
                 emit graphChanged(this, graph);
             } else {
@@ -105,7 +103,7 @@ void Graph3DProperties::textChanged() {
             }
             setErrorMsg(QString());
             ParametricGraph3D* graph = new ParametricGraph3D;
-            graph->reset(::move(ex), ::move(ey), ::move(ez), t, u, tMin, tMax, uMin, uMax);
+            graph->reset(std::move(ex), std::move(ey), std::move(ez), t, u, tMin, tMax, uMin, uMax);
             graph->setColor(getColor(color));
             emit graphChanged(this, graph);
         } else {
