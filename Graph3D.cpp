@@ -289,9 +289,8 @@ template<bool diag, typename T> bool halley(const WEvalFunc& f, const WEvalFunc&
 }
 
 template<bool diag = false, typename T> bool superbrute(const WVectorFunc& f, const WVectorFunc& gv, const WEvalFunc& g, const WEvalFunc& h, const WEvalFunc& j, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
-    Vector v = (Vector)alloca(sizeof(float)*size);
-    Vector w = (Vector)alloca(sizeof(float)*size);
-    __v4sf *_v = reinterpret_cast<__v4sf*>(v), *_w = reinterpret_cast<__v4sf*>(w);
+    Number v[size], w[size];
+    v4sf *_v = reinterpret_cast<v4sf*>(v), *_w = reinterpret_cast<v4sf*>(w);
     for (int i = 0; i < size; i += 4) {
         *_v++ = f(i);
         *_w++ = gv(i);

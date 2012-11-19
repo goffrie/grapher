@@ -13,12 +13,6 @@
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
 
-#ifdef _WIN32
-#include <malloc.h>
-#else
-#include <alloca.h>
-#endif
-
 #include <xmmintrin.h>
 typedef __m128 v4sf;
 #define VECTOR_LOOP(s) for (std::size_t i = 0; i < s; i += SSE_VECTOR_SIZE)
@@ -94,7 +88,7 @@ void InequalityGraph::restart() {
     QRgb fill = qRgba(m_color.red(), m_color.green(), m_color.blue(), 255);
         std::function<void(int)> function([this, left, top, xstep, ystep, &_img, fill](int line) -> void {
         if (this->cancelled) return;
-        VectorR px = reinterpret_cast<VectorR>(alloca(sizeof(Number) * this->m_width));
+        Number px[this->m_width];
         {
             Number _x = left;
             for (int x = 0; x < this->m_width; ++x) {

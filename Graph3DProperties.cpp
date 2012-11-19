@@ -93,15 +93,15 @@ void Graph3DProperties::textChanged() {
             vars.insert(std::make_pair<std::string, Expression*>("u", &u));
             auto ex = dynamic_unique_cast<Expression>(Parser::parse(par_x->text().toStdString(), vars));
             if (!ex) {
-                throw InvalidInputException("x(t) isn't a function!");
+                throw InvalidInputException("x(t,u) isn't a function!");
             }
             auto ey = dynamic_unique_cast<Expression>(Parser::parse(par_y->text().toStdString(), vars));
             if (!ey) {
-                throw InvalidInputException("y(t) isn't a function!");
+                throw InvalidInputException("y(t,u) isn't a function!");
             }
             auto ez = dynamic_unique_cast<Expression>(Parser::parse(par_z->text().toStdString(), vars));
             if (!ez) {
-                throw InvalidInputException("z(t) isn't a function!");
+                throw InvalidInputException("z(t,u) isn't a function!");
             }
             setErrorMsg(QString());
             ParametricGraph3D* graph = new ParametricGraph3D;
