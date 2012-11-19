@@ -1,0 +1,6 @@
+-I/usr/include/qt4
+-I/usr/include/qt4/QtCore
+-I/usr/include/qt4/QtGui
+-Ibuild
+-DQT_SHARED
+-std=gnu++11
