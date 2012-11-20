@@ -21,16 +21,17 @@
 #include "align.h"
 
 #include <AsmJit/AsmJit.h>
+#include <Vc/Vc>
 
 typedef float Number;
 
 BOOST_CONSTEXPR_OR_CONST int SSE_VECTOR_SIZE = 4;
 
-#define VECTOR_ALLOC(num) ((Vector) aligned_malloc((((num) + SSE_VECTOR_SIZE - 1) & (~(SSE_VECTOR_SIZE - 1)))*sizeof(Number)))
+#define VECTOR_ALLOC(num) ((Vector) aligned_malloc((((num) + Vc::float_v::Size - 1) & (~(Vc::float_v::Size - 1)))*sizeof(Number)))
 #define VECTOR_FREE(ptr) aligned_free(ptr)
 
-typedef Number __attribute__((aligned(16))) * Vector;
-typedef Number __attribute__((aligned(16))) * __restrict VectorR;
+typedef Number __attribute__((aligned(32))) * Vector;
+typedef Number __attribute__((aligned(32))) * __restrict VectorR;
 
 struct VectorDeleter {
     void operator()(Vector ptr) const throw() {

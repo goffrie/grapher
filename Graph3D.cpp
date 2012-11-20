@@ -35,7 +35,11 @@ Graph3D::Graph3D(QObject* parent) : Graph(parent) {
 
 }
 
-void Graph3D::setupRestart(const Transform3D& t, int width, int height, Vector3D boxa, Vector3D boxb, Vector3D light) {
+void Graph3D::setupRestart(const Transform3D& t,
+        int width, int height,
+        Vector3D<float> boxa,
+        Vector3D<float> boxb,
+        Vector3D<float> light) {
     cancel();
     m_width = width;
     m_height = height;
@@ -52,13 +56,11 @@ void Graph3D::setupRestart(const Transform3D& t, int width, int height, Vector3D
 
 void Graph3D::findEyeRay() {
     Transform3D inv = m_a->transform.inverted();
-    Vector3D pt1(0,0,1);
-    Vector3D pt2(0,0,0);
+    Vector3D<float> pt1(0.f,0.f,1.f);
+    Vector3D<float> pt2(0.f,0.f,0.f);
     pt1 = inv * pt1;
     pt2 = inv * pt2;
     m_a->eyeray = (pt2 - pt1).normalized<6>();
-//    qDebug() << m_eyeray << (inv * Vector3D(148, 149, -10) - inv * Vector3D(148, 149, 7)).normalized();
-//    Q_ASSERT(qFuzzyCompare((inv * Vector3D(148, 149, -10) - inv * Vector3D(148, 149, 7)).normalized(), m_eyeray));
 }
 
 ImplicitGraph3D::ImplicitGraph3D(QObject* parent): Graph3D(parent), tv(Variable::Id("t", Variable::Id::Vector, te->begin())),
@@ -163,7 +165,7 @@ void ImplicitGraph3D::restart() {
             VectorR vdz = dz->evaluateVector(num);
             _mm_empty();
             for (std::size_t i = 0; i < num; ++i) {
-                m_buf.drawTransformLitPoint(Vector3D(ox[i], oy[i], oz[i]), Vector3D(vdx[i], vdy[i], vdz[i]), opt[i]);
+                m_buf.drawTransformLitPoint(Vector3D<float>(ox[i], oy[i], oz[i]), Vector3D<float>(vdx[i], vdy[i], vdz[i]), opt[i]);
                 if (cancelled) return;
             }
             VECTOR_FREE(vdx);
@@ -180,21 +182,21 @@ template<int t> struct coord_tag {
 typedef coord_tag<0> X;
 typedef coord_tag<1> Y;
 typedef coord_tag<2> Z;
-template<typename T> float get(const Vector3D& v) { return v.get<T::index>(); }
-template<typename T> void set(Vector3D& v, float n) { v.set<T::index>(n); }
+template<typename T, typename N> N get(const Vector3D<N>& v) { return v.get<T::index>(); }
+template<typename T, typename N> void set(Vector3D<N>& v, N n) { v.set<T::index>(n); }
 
 struct Ray {
-    Vector3D a, b;
+    Vector3D<float> a, b;
     Ray() {}
-    Ray(Vector3D _a, Vector3D _b) : a(_a), b(_b) { }
-    Vector3D eval(float t) { return a + (b-a) * t; }
+    Ray(Vector3D<float> _a, Vector3D<float> _b) : a(_a), b(_b) { }
+    Vector3D<float> eval(float t) { return a + (b-a) * t; }
     template<typename T> float evalC(float t) const { return get<T>(a) + (get<T>(b) - get<T>(a)) * t; }
     template<typename T> EPtr evaluator(EPtr t) const {
         return Constant::create(get<T>(a)) + Constant::create(get<T>(b) - get<T>(a)) * std::move(t);
     }
 };
 
-template<typename T, typename U, typename V> bool intersect(const Ray& r, float t, float u1, float u2, float v1, float v2, float& q, Vector3D& pt) {
+template<typename T, typename U, typename V> bool intersect(const Ray& r, float t, float u1, float u2, float v1, float v2, float& q, Vector3D<float>& pt) {
     float qn = t - get<T>(r.a), qd = get<T>(r.b) - get<T>(r.a);
     if (qd == 0) return false;
     q = qn / qd;
@@ -207,7 +209,7 @@ template<typename T, typename U, typename V> bool intersect(const Ray& r, float 
     set<V>(pt, v);
     return true;
 }
-template<typename T, typename U, typename V> bool intersect2(const Ray& r, const Vector3D& boxa, const Vector3D& boxb, float* q, Vector3D* pt, int& n) {
+template<typename T, typename U, typename V> bool intersect2(const Ray& r, const Vector3D<float>& boxa, const Vector3D<float>& boxb, float* q, Vector3D<float>* pt, int& n) {
     (intersect<T, U, V>(r, get<T>(boxa), get<U>(boxa), get<U>(boxb), get<V>(boxa), get<V>(boxb), q[n], pt[n]) && ++n);
     if (n==2) {
         if (q[1]==q[0]) --n;
@@ -221,11 +223,11 @@ template<typename T, typename U, typename V> bool intersect2(const Ray& r, const
     return false;
 }
 
-inline bool rayAtPoint(const Transform3D& inv, const Vector3D& eyeray, float y, float x, const Vector3D& boxa, const Vector3D& boxb, Ray& ret) {
-    Vector3D pp = inv * Vector3D(x, y, 1);
+inline bool rayAtPoint(const Transform3D& inv, const Vector3D<float>& eyeray, float y, float x, const Vector3D<float>& boxa, const Vector3D<float>& boxb, Ray& ret) {
+    Vector3D<float> pp = inv * Vector3D<float>(x, y, 1);
     Ray r(pp, pp + eyeray);
     int n = 0;
-    Vector3D ends[2];
+    Vector3D<float> ends[2];
     float q[2];
     if (!(intersect2<X, Y, Z>(r, boxa, boxb, q, ends, n) || intersect2<Y, X, Z>(r, boxa, boxb, q, ends, n) || intersect2<Z, X, Y>(r, boxa, boxb, q, ends, n))) {
         // ray goes out of bounding box
@@ -449,7 +451,7 @@ bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector
     v1[0] = ray.a.x();
     v1[1] = ray.a.y();
     v1[2] = ray.a.z();
-    Vector3D _dv = ray.b - ray.a;
+    Vector3D<float> _dv = ray.b - ray.a;
     dv[0] = _dv.x();
     dv[1] = _dv.y();
     dv[2] = _dv.z();
@@ -463,7 +465,7 @@ bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector
             return false;
         }
     }
-    Vector3D pt = ray.eval(guess);
+    Vector3D<float> pt = ray.eval(guess);
     *ox = pt.x();
     *oy = pt.y();
     *oz = pt.z();
@@ -508,7 +510,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
     v1[0] = ray.a.x();
     v1[1] = ray.a.y();
     v1[2] = ray.a.z();
-    Vector3D _dv = ray.b - ray.a;
+    Vector3D<float> _dv = ray.b - ray.a;
     dv[0] = _dv.x();
     dv[1] = _dv.y();
     dv[2] = _dv.z();
@@ -671,7 +673,6 @@ void ParametricGraph3D::startThread() {
 void ParametricGraph3D::restart() {
     // setup
     _mm_empty();
-    //const Transform3D inv = m_a->transform.inverted();
     m_buf.setColor(m_color.rgba());
     m_buf.setLight(m_a->light);
     tDist = std::uniform_real_distribution<Number>(tMin, tMax);
@@ -728,7 +729,7 @@ begin:
     // draw points
     VectorR px = fx.result(), py = fy.result(), pz = fz.result();
     for (std::size_t i = 0; i < numPts; ++i) {
-        m_buf.drawTransformLitPoint(Vector3D(px[i], py[i], pz[i]), Vector3D(ox[i], oy[i], oz[i]));
+        m_buf.drawTransformLitPoint(Vector3D<float>(px[i], py[i], pz[i]), Vector3D<float>(ox[i], oy[i], oz[i]));
     }
 
     VECTOR_FREE(px);

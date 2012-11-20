@@ -18,8 +18,8 @@ class Graph3D : public Graph {
 protected:
     struct AData {
         Transform3D transform;
-        Vector3D boxa, boxb, light;
-        Vector3D eyeray;
+        Vector3D<float> boxa, boxb, light;
+        Vector3D<float> eyeray;
     };
     Buffer3D m_buf;
     Align<AData> m_a;
@@ -27,8 +27,8 @@ public:
     Graph3D(QObject* parent = 0);
     void setupRestart(const Transform3D& t,
             int width, int height,
-            Vector3D boxa, Vector3D boxb,
-            Vector3D light);
+            Vector3D<float> boxa, Vector3D<float> boxb,
+            Vector3D<float> light);
     void findEyeRay();
     virtual const Buffer3D& buf() { return m_buf; }
 };

@@ -17,17 +17,17 @@ Window3DSettings::Window3DSettings(QWidget* parent): QGroupBox(parent) {
 }
 
 void Window3DSettings::onChanged() {
-    Vector3D boxa(xMin->text().toFloat(), yMin->text().toFloat(), zMin->text().toFloat());
-    Vector3D boxb(xMax->text().toFloat(), yMax->text().toFloat(), zMax->text().toFloat());
-    Vector3D lightPos(lightX->text().toFloat(), lightY->text().toFloat(), lightZ->text().toFloat());
+    Vector3D<float> boxa(xMin->text().toFloat(), yMin->text().toFloat(), zMin->text().toFloat());
+    Vector3D<float> boxb(xMax->text().toFloat(), yMax->text().toFloat(), zMax->text().toFloat());
+    Vector3D<float> lightPos(lightX->text().toFloat(), lightY->text().toFloat(), lightZ->text().toFloat());
     if (boxb.x() > boxa.x() && boxb.y() > boxa.y() && boxb.z() > boxa.z()) {
         emit boxChanged(boxa, boxb);
     }
     emit lightChanged(lightPos);
 }
 
-void Window3DSettings::setLight(Vector3D lightPos) {
-    Vector3D _lightPos(lightX->text().toFloat(), lightY->text().toFloat(), lightZ->text().toFloat());
+void Window3DSettings::setLight(Vector3D<float> lightPos) {
+    Vector3D<float> _lightPos(lightX->text().toFloat(), lightY->text().toFloat(), lightZ->text().toFloat());
     if (lightPos != _lightPos) {
         lightX->setText(QString::number(lightPos.x()));
         lightY->setText(QString::number(lightPos.y()));

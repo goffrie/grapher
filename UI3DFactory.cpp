@@ -18,9 +18,9 @@ Graph3DProperties* UI3DFactory::graphProperties() {
 
 Window3DSettings* UI3DFactory::windowSettings() {
     Window3DSettings* settings = new Window3DSettings;
-    connect(settings, SIGNAL(boxChanged(Vector3D,Vector3D)), grapher(), SLOT(setBox(Vector3D,Vector3D)));
-    connect(settings, SIGNAL(lightChanged(Vector3D)), grapher(), SLOT(setLightSource(Vector3D)));
-    connect(grapher(), SIGNAL(lightSourceChanged(Vector3D)), settings, SLOT(setLight(Vector3D)));
+    connect(settings, SIGNAL(boxChanged(Vector3D<float>,Vector3D<float>)), grapher(), SLOT(setBox(Vector3D<float>,Vector3D<float>)));
+    connect(settings, SIGNAL(lightChanged(Vector3D<float>)), grapher(), SLOT(setLightSource(Vector3D<float>)));
+    connect(grapher(), SIGNAL(lightSourceChanged(Vector3D<float>)), settings, SLOT(setLight(Vector3D<float>)));
     connect(settings, SIGNAL(showAxes(bool)), grapher(), SLOT(setShowAxes(bool)));
     settings->onChanged();
     return settings;

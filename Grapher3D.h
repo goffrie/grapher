@@ -18,7 +18,7 @@ class QLabel;
 class Grapher3D : public QWidget {
     Q_OBJECT
     struct AData {
-        Vector3D boxa, boxb, light;
+        Vector3D<float> boxa, boxb, light;
         Transform3D baseTransform, rotation, comb;
     };
     Align<AData> m_a;
@@ -41,14 +41,14 @@ public:
     void paintEvent(QPaintEvent* event);
     void resizeEvent(QResizeEvent* event);
 signals:
-    void lightSourceChanged(Vector3D light);
+    void lightSourceChanged(Vector3D<float> light);
 public slots:
     void setShowAxes(bool showAxes);
     void idDeleted(QObject* id);
     void changeGraph(QObject* id, Graph3D* graph);
     void resized();
-    void setBox(Vector3D boxa, Vector3D boxb);
-    void setLightSource(Vector3D light);
+    void setBox(Vector3D<float> boxa, Vector3D<float> boxb);
+    void setLightSource(Vector3D<float> light);
     void scheduleUpdate(bool now = false);
     void scheduledUpdate();
 };

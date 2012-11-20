@@ -11,11 +11,6 @@
 #include "Render3D.h"
 #include "util.h"
 
-#include <mmintrin.h>
-#include <emmintrin.h>
-#include <xmmintrin.h>
-typedef __m128i v4si;
-
 Grapher3D::Grapher3D(QWidget* parent) : QWidget(parent), needsRedraw(false), redrawTimer(new QTimer(this)), showAxes(true), diagnostic(nullptr) {
     redrawTimer->setInterval(1000 / 15);
     connect(redrawTimer, SIGNAL(timeout()), this, SLOT(scheduledUpdate()));
@@ -50,7 +45,7 @@ void Grapher3D::mouseMoveEvent(QMouseEvent* event) {
     AData& a = *m_a;
     Transform3D left = (a.rotation * a.baseTransform);
     a.rotation = Transform3D::rotatorY(d.x() * 0.01f) * Transform3D::rotatorX(d.y() * -0.01f) * a.rotation;
-    Vector3D mid = (a.boxa + a.boxb) * 0.5f;
+    Vector3D<float> mid = (a.boxa + a.boxb) * 0.5f;
     a.light = (a.rotation * a.baseTransform).inverted() * (left * (a.light - mid)) + mid;
     emit lightSourceChanged(a.light);
     resized();
@@ -63,7 +58,7 @@ void Grapher3D::addGraph(QObject* id) {
     connect(id, SIGNAL(destroyed(QObject*)), SLOT(idDeleted(QObject*)));
 }
 
-void Grapher3D::setBox(Vector3D _boxa, Vector3D _boxb) {
+void Grapher3D::setBox(Vector3D<float> _boxa, Vector3D<float> _boxb) {
     if (m_a->boxa != _boxa || m_a->boxb != _boxb) {
         m_a->boxa = _boxa;
         m_a->boxb = _boxb;
@@ -72,7 +67,7 @@ void Grapher3D::setBox(Vector3D _boxa, Vector3D _boxb) {
     }
 }
 
-void Grapher3D::setLightSource(Vector3D _light) {
+void Grapher3D::setLightSource(Vector3D<float> _light) {
     if (m_a->light != _light) {
         m_a->light = _light;
         resized();
@@ -82,9 +77,13 @@ void Grapher3D::setLightSource(Vector3D _light) {
 
 
 void Grapher3D::resized() {
-    Vector3D mid = (m_a->boxa + m_a->boxb) * 0.5f;
+    Vector3D<float> mid = (m_a->boxa + m_a->boxb) * 0.5f;
     m_a->baseTransform = Transform3D::translator(-mid.x(), -mid.y(), -mid.z()) * Transform3D::isometricTransform;
-    m_a->comb = (m_a->rotation * m_a->baseTransform).fit(width(), height(), m_a->boxa.x(), m_a->boxb.x(), m_a->boxa.y(), m_a->boxb.y(), m_a->boxa.z(), m_a->boxb.z());
+    m_a->comb = (m_a->rotation * m_a->baseTransform)
+        .fit(width(), height(),
+                m_a->boxa.x(), m_a->boxb.x(),
+                m_a->boxa.y(), m_a->boxb.y(),
+                m_a->boxa.z(), m_a->boxb.z());
 
     foreach (Graph3D* graph, graphs) {
         if (!graph) continue;
@@ -102,13 +101,13 @@ void Grapher3D::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     Buffer3D buf(width(), height(), m_a->comb);
     if (showAxes) for (int i = 0; i < 3; ++i) for (int j = 0; j < 2; ++j) for (int k = 0; k < 2; ++k) {
-        Vector3D a;
+        Vector3D<float> a;
         for (int l = 0, n = j; l < 3; ++l) {
             if (l == i) continue;
-            a.v[l] = (n?m_a->boxa:m_a->boxb).v[l];
+            a.v[l] = (n ? m_a->boxa : m_a->boxb).v[l];
             n = k;
         }
-        Vector3D b = a;
+        Vector3D<float> b = a;
         a.v[i] = m_a->boxa.v[i];
         b.v[i] = m_a->boxb.v[i];
         buf.drawTransformLine(a, b, Qt::black);

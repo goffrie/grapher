@@ -4,11 +4,14 @@
 #include <cstdlib>
 #include <cstdint>
 #include <new>
+#include <Vc/Vc>
+
+#define ALIGN_AMT (VC_FLOAT_V_SIZE*sizeof(float))
 
 inline void* aligned_malloc(size_t size) {
-    void* pa = std::malloc(size + 15 + sizeof(void *));
+    void* pa = std::malloc(size + (ALIGN_AMT-1) + sizeof(void *));
     if (!pa) throw std::bad_alloc();
-    void* ptr = (void*) ( ((uintptr_t)pa + sizeof(void *) + 15) & (~15) );
+    void* ptr = (void*) ( ((uintptr_t)pa + sizeof(void *) + (ALIGN_AMT-1)) & (~(ALIGN_AMT-1)) );
     *((void **)ptr-1) = pa;
     return ptr;
 }
@@ -17,7 +20,7 @@ inline void aligned_free(void* ptr) {
     if (ptr) std::free(*((void **)ptr-1));
 }
 
-template<typename T, int align = 16>
+template<typename T, int align = ALIGN_AMT>
 class Align {
 #ifdef USE_ALIGNAS
     alignas(align) T t;

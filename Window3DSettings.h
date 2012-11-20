@@ -10,12 +10,12 @@ class Window3DSettings : public QGroupBox, private Ui_Window3DSettings {
 public:
     Window3DSettings(QWidget* parent = 0);
 signals:
-    void boxChanged(Vector3D boxa, Vector3D boxb);
-    void lightChanged(Vector3D lightPos);
+    void boxChanged(Vector3D<float> boxa, Vector3D<float> boxb);
+    void lightChanged(Vector3D<float> lightPos);
     void showAxes(bool showAxes);
 public slots:
     void onChanged();
-    void setLight(Vector3D lightPos);
+    void setLight(Vector3D<float> lightPos);
 };
 
 #endif

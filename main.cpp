@@ -19,7 +19,8 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     app.setApplicationName("Grapher");
     qRegisterMetaType<Variable>();
-    qRegisterMetaType<Vector3D>();
+    qRegisterMetaType<Vector3D<float>>();
+    qRegisterMetaType<Vector3D<Vc::float_v>>();
     qRegisterMetaType<Transform3D>();
 
     std::unordered_map<std::string, Expression*> vars;
