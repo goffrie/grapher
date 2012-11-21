@@ -6,11 +6,9 @@
 
 #include "Graph2D.h"
 #include "util.h"
+#include "global.h"
 
-#include <mmintrin.h>
-#include <emmintrin.h>
-#include <xmmintrin.h>
-typedef __m128i v4si;
+#include <Vc/Vc>
 
 Grapher2D::Grapher2D(QWidget* parent) : QWidget(parent), needsRedraw(false), redrawTimer(new QTimer(this)), showAxes(true), showGrid(true) {
     redrawTimer->setInterval(1000 / 15);
@@ -67,7 +65,7 @@ void genTable() {
     }
 }
 
-const v4si zeroq = {0,0};
+static const Vc::int_v zeroq(Vc::Zero);
 
 QImage combine(QList<QImage> images) {
     if (images.length() == 1) return images.first();
@@ -75,9 +73,29 @@ QImage combine(QList<QImage> images) {
     QSize size = images[0].size();
     const int width = size.width();
     const int height = size.height();
-    typedef v4si* dataPtr;
-    dataPtr data = (dataPtr) aligned_malloc(sizeof(v4si) * width * height);
-    memset(data, 0, sizeof(v4si) * width * height);
+    QImage ret(size, QImage::Format_ARGB32_Premultiplied);
+    for (int y = 0; y < height; ++y) {
+        uchar* __restrict q = ret.scanLine(y);
+        for (int x = 0; x < width; ++x) {
+            u32 sum[4] = {0};
+            foreach (const QImage& img, images) {
+                QRgb rgb = img.pixel(x, y);
+                sum[0] += rgb & 0xFFu;
+                sum[1] += (rgb >> 8u) & 0xFFu;
+                sum[2] += (rgb >> 16u) & 0xFFu;
+                sum[3] += (rgb >> 24u) & 0xFFu;
+            }
+            const u32 multiplier = table[std::max(sum[3], u32(255u))];
+#define PROCESS_PIXEL(i) *q++ = (uchar) ((u64(sum[i] * 255u) * multiplier) >> 32);
+            PROCESS_PIXEL(0) PROCESS_PIXEL(1) PROCESS_PIXEL(2)
+#undef PROCESS_PIXEL
+            *q++ = (u8) std::min(sum[3], u32(255u));
+        }
+    }
+    /*
+    typedef Vc::int_v* dataPtr;
+    dataPtr data = (dataPtr) aligned_malloc(sizeof(Vc::int_v) * width * height);
+    memset(data, 0, sizeof(Vc::int_v) * width * height);
     foreach (const QImage& img, images) {
         Q_ASSERT(img.format() == QImage::Format_ARGB32_Premultiplied);
         Q_ASSERT(img.size() == size);
@@ -102,6 +120,7 @@ QImage combine(QList<QImage> images) {
         }
     }
     aligned_free(data);
+    */
     return ret;
 }
 

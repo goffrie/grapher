@@ -46,7 +46,7 @@ private:
     EPtr dx, dy, dz;
     std::vector<WEvalFunc> polyrayfunc_e;
     WEvalFunc rayfunc_e[3];
-    WVectorFunc rayfunc_v, d_rayfunc_v;
+    //WVectorFunc rayfunc_v, d_rayfunc_v;
 
     UVector line;
 

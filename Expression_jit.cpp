@@ -1,10 +1,5 @@
 #include "Expression.h"
 
-#include <mmintrin.h>
-#include <xmmintrin.h>
-
-#include "sse_mathfun.h"
-
 using namespace AsmJit;
 
 static_assert(sizeof(sysint_t) == sizeof(void*), "sysint_t has the wrong size");
@@ -261,6 +256,7 @@ XMMVar PolyGamma::evaluate(Compiler& c) const {
     return ret;
 }
 
+#if 0
 VectorFunc Expression::evaluatorVector() const {
     Compiler c;
     c.setLogger(new FileLogger(stdout));
@@ -501,3 +497,4 @@ XMMVar PolyGamma::evaluateVector(Compiler& c, const GPVar& i) const {
     throw "Not implemented";
     return ret;
 }
+#endif

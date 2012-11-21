@@ -24,11 +24,6 @@
 #include <alloca.h>
 #endif
 
-#include <xmmintrin.h>
-typedef __m128 v4sf;
-#define VECTOR_LOOP(s) for (std::size_t i = 0; i < s; i += SSE_VECTOR_SIZE)
-#define V(a) (*reinterpret_cast<v4sf*>(a+i))
-
 #include <AsmJit/AsmJit.h>
 
 Graph3D::Graph3D(QObject* parent) : Graph(parent) {
@@ -116,9 +111,9 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     for (int i = 0; i < 3; ++i) {
         rayfunc_e[i] = rayfunc[i]->evaluator();
     }
-    rayfunc_v = rayfunc[0]->evaluatorVector();
+    //rayfunc_v = rayfunc[0]->evaluatorVector();
     d_rayfunc = (rayfunc[0]->ecopy() / rayfunc[1]->ecopy())->simplify();
-    d_rayfunc_v = d_rayfunc->evaluatorVector();
+    //d_rayfunc_v = d_rayfunc->evaluatorVector();
     dx = func->derivative(x)->simplify();
     dy = func->derivative(y)->simplify();
     dz = func->derivative(z)->simplify();
@@ -290,13 +285,8 @@ template<bool diag, typename T> bool halley(const WEvalFunc& f, const WEvalFunc&
     return false;
 }
 
-template<bool diag = false, typename T> bool superbrute(const WVectorFunc& f, const WVectorFunc& gv, const WEvalFunc& g, const WEvalFunc& h, const WEvalFunc& j, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
-    Number v[size], w[size];
-    v4sf *_v = reinterpret_cast<v4sf*>(v), *_w = reinterpret_cast<v4sf*>(w);
-    for (int i = 0; i < size; i += 4) {
-        *_v++ = f(i);
-        *_w++ = gv(i);
-    }
+template<bool diag = false, typename T> bool superbrute(const Expression& f, const Expression& gv, const WEvalFunc& g, const WEvalFunc& h, const WEvalFunc& j, const Variable& tv, Number* t, int size, Number& guess, T guessChanged) {
+    UVector v(f.evaluateVector(size)), w(gv.evaluateVector(size));
     int last = 0;
     const float maxdelta = 10.f / size;
     for (int i = 0; i < size; ++i) {
@@ -461,7 +451,7 @@ bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector
             return false;
         }
     } else {
-        if (!superbrute(d_rayfunc_v, rayfunc_v, rayfunc_e[0], rayfunc_e[1], rayfunc_e[2], tv, te->begin(), te->size(), guess, nullfunc())) {
+        if (!superbrute(*d_rayfunc, *rayfunc[0], rayfunc_e[0], rayfunc_e[1], rayfunc_e[2], tv, te->begin(), te->size(), guess, nullfunc())) {
             return false;
         }
     }
@@ -615,7 +605,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
             qDebug() << "not okay" << guess;
         }
     } else {
-        if (superbrute<true>(d_rayfunc_v, rayfunc_v, rayfunc_e[0], rayfunc_e[1], rayfunc_e[2], tv, te->begin(), te->size(), guess, fcn)) {
+        if (superbrute<true>(*d_rayfunc, *rayfunc[0], rayfunc_e[0], rayfunc_e[1], rayfunc_e[2], tv, te->begin(), te->size(), guess, fcn)) {
             fcn(guess);
             qDebug() << "yey" << guess;
         } else {
@@ -714,11 +704,13 @@ begin:
             ox = VECTOR_ALLOC(numPts),
             oy = VECTOR_ALLOC(numPts),
             oz = VECTOR_ALLOC(numPts);
-    VECTOR_LOOP(numPts) {
+#define size numPts
+    VECTOR_LOOP {
         V(ox) = V(pyt) * V(pzu) - V(pzt) * V(pyu);
         V(oy) = V(pzt) * V(pxu) - V(pxt) * V(pzu);
         V(oz) = V(pxt) * V(pyu) - V(pyt) * V(pxu);
     }
+#undef size
     VECTOR_FREE(pxt);
     VECTOR_FREE(pyt);
     VECTOR_FREE(pzt);

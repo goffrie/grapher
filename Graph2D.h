@@ -71,7 +71,7 @@ class ImplicitGraph : public IteratingGraph {
     Variable x, y;
     std::unique_ptr<Expression> eqn, dx, dy;
     UVector m_px, m_py;
-    std::size_t numPts;
+    uz numPts;
 
     QImage iterate();
     void resubstitute();
@@ -94,7 +94,7 @@ class ParametricGraph : public IteratingGraph {
     std::uniform_real_distribution<Number> distribution;
     std::mt19937 engine;
     UVector pts;
-    BOOST_STATIC_CONSTEXPR std::size_t numPts = 16384;
+    BOOST_STATIC_CONSTEXPR uz numPts = 16384;
     QImage _img;
 
     void draw(Vector vx, Vector vy);

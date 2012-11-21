@@ -3,13 +3,8 @@
 #include <cstring>
 
 #include "util.h"
-
-#include <xmmintrin.h>
-#define USE_SSE2
-#include "sse_mathfun.h"
-
-#define VECTOR_LOOP for (std::size_t i = 0; i < size; i += SSE_VECTOR_SIZE)
-#define V(a) (*reinterpret_cast<v4sf*>(a+i))
+#include "global.h"
+// #include "sse_mathfun.h"
 
 #include <iostream>
 #include <sstream>
@@ -44,10 +39,10 @@ std::string PolyGamma::toString(int prec) const {
 
 
 
-Vector Constant::evaluateVector(size_t size) const {
+Vector Constant::evaluateVector(uz size) const {
     VectorR r = VECTOR_ALLOC(size);
-    const v4sf _c = {c, c, c, c};
-    VECTOR_LOOP V(r) = _c;
+    const Vc::float_v vc = c;
+    VECTOR_LOOP V(r) = vc;
     return r;
 }
 
@@ -61,13 +56,12 @@ Number Variable::evaluate() const {
     }
 }
 
-Vector Variable::evaluateVector(std::size_t size) const {
+Vector Variable::evaluateVector(uz size) const {
     switch (id->type) {
         case Id::Constant: {
             VectorR r = VECTOR_ALLOC(size);
-            const float c = *id->p;
-            const v4sf _c = {c, c, c, c};
-            VECTOR_LOOP V(r) = _c;
+            const Vc::float_v vc = *id->p;
+            VECTOR_LOOP V(r) = vc;
             return r;
         }
         case Id::Vector: {
@@ -86,9 +80,9 @@ Number Name::evaluate(Number _a) const { return sfunc(_a); } \
 Number Name::evaluate() const { return sfunc(a->evaluate()); }
 #define UNARY_FUNCTION(Name, sfunc) \
 UNARY_EVALUATE(Name, sfunc) \
-Vector Name::evaluateVector(std::size_t size) const { \
+Vector Name::evaluateVector(uz size) const { \
     VectorR _a = a->evaluateVector(size); \
-    for (std::size_t i = 0; i < size; ++i) _a[i] = sfunc(_a[i]); \
+    for (uz i = 0; i < size; ++i) _a[i] = sfunc(_a[i]); \
     return _a; \
 }
 
@@ -99,33 +93,44 @@ UNARY_EVALUATE(Sqrt, std::sqrt)
 UNARY_EVALUATE(Sin, std::sin)
 UNARY_EVALUATE(Cos, std::cos)
 UNARY_EVALUATE(Tan, std::tan)
-UNARY_FUNCTION(Asin, std::asin)
-UNARY_FUNCTION(Acos, std::acos)
-UNARY_FUNCTION(Atan, std::atan)
+UNARY_EVALUATE(Asin, std::asin)
+UNARY_EVALUATE(Acos, std::acos)
+UNARY_EVALUATE(Atan, std::atan)
 UNARY_FUNCTION(Gamma, gsl_sf_gamma)
 
 #undef UNARY_FUNCTION
 #undef UNARY_EVALUATE
 
 #define UNARY_VECTOR_EVALUATE(Name, vfunc) \
-Vector Name::evaluateVector(std::size_t size) const { \
+Vector Name::evaluateVector(uz size) const { \
     VectorR _a = a->evaluateVector(size); \
     VECTOR_LOOP V(_a) = vfunc(V(_a)); \
     return _a; \
 }
 
+Vc::float_v tan(Vc::float_v v) {
+    return Vc::sin(v) / Vc::cos(v);
+}
+Vc::float_v acos(Vc::float_v v) {
+    static const Vc::float_v halfpi(M_PI/2.);
+    return halfpi - Vc::asin(v);
+}
+
 UNARY_VECTOR_EVALUATE(Neg, -)
-UNARY_VECTOR_EVALUATE(Sqrt, _mm_sqrt_ps)
-UNARY_VECTOR_EVALUATE(Ln, log_ps)
-UNARY_VECTOR_EVALUATE(Exp, exp_ps)
-UNARY_VECTOR_EVALUATE(Sin, sin_ps)
-UNARY_VECTOR_EVALUATE(Cos, cos_ps)
-UNARY_VECTOR_EVALUATE(Tan, tan_ps)
+UNARY_VECTOR_EVALUATE(Sqrt, Vc::sqrt)
+UNARY_VECTOR_EVALUATE(Ln, Vc::log)
+UNARY_VECTOR_EVALUATE(Exp, Vc::exp)
+UNARY_VECTOR_EVALUATE(Sin, Vc::sin)
+UNARY_VECTOR_EVALUATE(Cos, Vc::cos)
+UNARY_VECTOR_EVALUATE(Tan, tan)
+UNARY_VECTOR_EVALUATE(Asin, Vc::asin)
+UNARY_VECTOR_EVALUATE(Acos, acos)
+UNARY_VECTOR_EVALUATE(Atan, Vc::atan)
 
 #undef UNARY_VECTOR_EVALUATE
 
 #define BINARY_VECTOR_EVALUATE(Name, op) \
-Vector Name::evaluateVector(std::size_t size) const { \
+Vector Name::evaluateVector(uz size) const { \
     VectorR _a = a->evaluateVector(size); \
     VectorR _b = b->evaluateVector(size); \
     VECTOR_LOOP V(_a) op##= V(_b); \
@@ -145,13 +150,13 @@ Vector Inequality::evaluateVector(size_t size) const {
     VectorR _b = b->evaluateVector(size);
 #define IOP(n, op) \
         case n: \
-            VECTOR_LOOP V(_a) = _mm_cmp##op##_ps(V(_a), V(_b)); \
+            VECTOR_LOOP reinterpret_cast<Vc::float_m&>(V(_a)) = V(_a) op V(_b); \
             break;
     switch (type) {
-        IOP(LT, lt)
-        IOP(GT, gt)
-        IOP(LTE, le)
-        IOP(GTE, ge)
+        IOP(LT, <)
+        IOP(GT, >)
+        IOP(LTE, <=)
+        IOP(GTE, >=)
     }
 #undef IOP
     VECTOR_FREE(_b);
@@ -176,11 +181,11 @@ Number PowInt::evaluate(Number _a) const {
     return powi(_a, b);
 }
 
-Vector PowInt::evaluateVector(std::size_t size) const {
+Vector PowInt::evaluateVector(uz size) const {
     VectorR _a = a->evaluateVector(size);
     int _b = b;
     VectorR ret = VECTOR_ALLOC(size);
-    const v4sf ones = {1.f, 1.f, 1.f, 1.f};
+    const Vc::float_v ones(Vc::One);
     VECTOR_LOOP V(ret) = ones;
     bool neg = _b < 0;
     if (neg) _b = -_b;
@@ -194,10 +199,11 @@ Vector PowInt::evaluateVector(std::size_t size) const {
     return ret;
 }
 
-Vector Pow::evaluateVector(std::size_t size) const {
+Vector Pow::evaluateVector(uz size) const {
     VectorR _a = a->evaluateVector(size);
     VectorR _b = b->evaluateVector(size);
-    for (std::size_t i = 0; i < size; ++i) _a[i] = std::pow(_a[i], _b[i]);
+    //for (uz i = 0; i < size; ++i) _a[i] = std::pow(_a[i], _b[i]);
+    VECTOR_LOOP V(_a) = Vc::exp(V(_b) * Vc::log(V(_a)));
     VECTOR_FREE(_b);
     return _a;
 }
@@ -210,9 +216,9 @@ Number PolyGamma::evaluate(Number _a) const {
     return gsl_sf_psi_n(b, _a);
 }
 
-Vector PolyGamma::evaluateVector(std::size_t size) const {
+Vector PolyGamma::evaluateVector(uz size) const {
     VectorR _a = a->evaluateVector(size);
-    for (std::size_t i = 0; i < size; ++i) _a[i] = gsl_sf_psi_n(b, _a[i]);
+    for (uz i = 0; i < size; ++i) _a[i] = gsl_sf_psi_n(b, _a[i]);
     return _a;
 }
 
@@ -848,8 +854,7 @@ Vector Polynomial::evaluateVector(std::size_t size) const {
     VectorR _l = left->evaluateVector(size);
     switch (var.id->type) {
         case Variable::Id::Constant: {
-            float _c = *var.id->p;
-            v4sf c = {_c, _c, _c, _c};
+            Vc::float_v c = *var.id->p;
             VECTOR_LOOP V(_l) *= c;
             break;
         }

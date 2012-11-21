@@ -13,10 +13,7 @@
 #include <gsl/gsl_sys.h>
 #include <gsl/gsl_nan.h>
 
-#include <xmmintrin.h>
-typedef __m128 v4sf;
-#define VECTOR_LOOP(s) for (std::size_t i = 0; i < s; i += SSE_VECTOR_SIZE)
-#define V(a) (*reinterpret_cast<v4sf*>(a+i))
+#include "global.h"
 
 inline QImage downsample(QImage in) {
     return in.scaled(in.width() / Graph2D::supersample, in.height() / Graph2D::supersample, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
@@ -157,7 +154,7 @@ QImage ImplicitGraph::restart() {
     m_py.reset(VECTOR_ALLOC(m_width * m_height));
     resubstitute();
     numPts = 0;
-    std::size_t size = 0;
+    uz size = 0;
     for (int y = 0; y < m_height; y += 3) {
         for (int x = 0; x < m_width; x += 3) {
             {
@@ -187,7 +184,7 @@ QImage ImplicitGraph::restart() {
     if (cancelled) return QImage();
     UVector p (eqn->evaluateVector(size));
     if (cancelled) return QImage();
-    for (std::size_t i = 0; i < size; ++i) {
+    for (uz i = 0; i < size; ++i) {
         QPointF pt(m_px[i], m_py[i]);
         QPointF correction = QPointF(gx[i], gy[i]) * (p[i] / (gx[i] * gx[i] + gy[i] * gy[i]));
         correction = (pt * transform) - ((pt - correction) * transform);
@@ -219,7 +216,7 @@ QImage ImplicitGraph::draw() {
     QPainter painter(&_img);
     if (!painter.isActive()) return QImage();
     painter.scale(supersample, supersample);
-    for (std::size_t i = 0; i < numPts; ++i) {
+    for (uz i = 0; i < numPts; ++i) {
         painter.fillRect(QRectF(QPointF(m_px[i], m_py[i]) * transform, QSizeF(0, 0)).adjusted(-0.5, -0.5, 0.5, 0.5), m_color);
     }
     painter.end();
@@ -228,7 +225,7 @@ QImage ImplicitGraph::draw() {
 
 QImage ImplicitGraph::iterate() {
     if (cancelled) return QImage();
-    std::size_t size = numPts;
+    uz size = numPts;
     UVector p_gx (dx->evaluateVector(size));
     if (cancelled) return QImage();
     UVector p_gy (dy->evaluateVector(size));
@@ -243,10 +240,10 @@ QImage ImplicitGraph::iterate() {
         py = m_py.get();
     // correcting factor = (gx, gy) * p / (gx * gx + gy * gy)
     // (gx2, gy2) = (gx^2, gy^2) in place
-    VECTOR_LOOP(size) {
+    VECTOR_LOOP {
         // replace "p" with p/(gx^2 + gy^2)
-        v4sf _gx = V(gx), _gy = V(gy);
-        v4sf _p = V(p) / (_gx * _gx + _gy * _gy);
+        auto _gx = V(gx), _gy = V(gy);
+        auto _p = V(p) / (_gx * _gx + _gy * _gy);
         // delta-P = (gx, gy) * p / (gx^2 + gy^2)
         // update points
         V(px) -= _gx * _p;
@@ -256,7 +253,7 @@ QImage ImplicitGraph::iterate() {
     return downsample(draw());
 }
 
-BOOST_CONSTEXPR_OR_CONST std::size_t ParametricGraph::numPts;
+BOOST_CONSTEXPR_OR_CONST uz ParametricGraph::numPts;
 
 ParametricGraph::ParametricGraph(QObject* parent): IteratingGraph(parent), pts(VECTOR_ALLOC(numPts)) {
 }
@@ -295,7 +292,7 @@ QImage ParametricGraph::restart() {
 void ParametricGraph::draw(Vector vx, Vector vy) {
     QPainter painter(&_img);
     painter.scale(supersample, supersample);
-    for (std::size_t i = 0; i < numPts; ++i) {
+    for (uz i = 0; i < numPts; ++i) {
         painter.fillRect(QRectF(QPointF(vx[i], vy[i]) * transform, QSizeF(0, 0)).adjusted(-0.5, -0.5, 0.5, 0.5), m_color);
     }
     painter.end();
@@ -303,7 +300,7 @@ void ParametricGraph::draw(Vector vx, Vector vy) {
 
 QImage ParametricGraph::iterate() {
     if (cancelled) return QImage();
-    for (int i = 0; i < numPts; ++i) pts[i] = distribution(engine);
+    for (uz i = 0; i < numPts; ++i) pts[i] = distribution(engine);
     if (cancelled) return QImage();
     QFuture<Vector> fy = QtConcurrent::run(y.get(), &Expression::evaluateVector, numPts);
     UVector vx(x->evaluateVector(numPts));
