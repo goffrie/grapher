@@ -96,15 +96,15 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     rayfunc[0] = func->substitute(s)->simplify();
     if (rayfunc[0]->polynomial(tv)) {
         polyrayfunc = rayfunc[0]->expand()->facsum(tv);
-        Polynomial* poly = static_cast<Polynomial*>(polyrayfunc.get());
+        Polynomial* poly = polyrayfunc.get();
         int d = poly->degree();
-        polyrayfunc_e.resize(d);
-        for (int i = d; i--; ) {
-            polyrayfunc_e[i+1] = poly->right->evaluator();
-            poly = poly->left.get();
+        polyrayfunc_e.resize(d+1);
+        for (int i = d; i >= 0; --i) {
             Q_ASSERT(poly);
+            polyrayfunc_e[i] = poly->right->evaluator();
+            poly = poly->left.get();
         }
-        polyrayfunc_e[0] = poly->right->evaluator();
+        Q_ASSERT(!poly);
     }
     rayfunc[1] = rayfunc[0]->derivative(tv)->simplify();
     rayfunc[2] = rayfunc[1]->derivative(tv)->simplify();
@@ -332,7 +332,7 @@ struct Poly {
     int degree;
     double* coeff;
     Poly(const std::vector<WEvalFunc>& poly_coeff) {
-        degree = poly_coeff.size();
+        degree = poly_coeff.size()-1;
         coeff = new double[degree];
         double factor = 1. / poly_coeff[0]();
         for (int i = 0; i < degree; ++i) {
@@ -366,6 +366,9 @@ template<bool diag = false, typename T>
 void durandkerner(const Poly& poly, std::complex<double>* roots, T rootChanged) {
     if (diag) std::cerr << poly << std::endl;
     int degree = poly.degree;
+    if (degree == 0) {
+    	return;
+	}
     if (degree == 1) {
         // x + a = 0 => x = -a
         roots[0] = -poly.coeff[0];
@@ -403,7 +406,7 @@ void durandkerner(const Poly& poly, std::complex<double>* roots, T rootChanged) 
                 }
             }
             const std::complex<double> adjust = poly.evaluate(roots[i]) / denom;
-            if (adjust.real() * adjust.real() + adjust.imag() * adjust.imag() > 0.00001) repeat = true;
+            if (adjust.real() * adjust.real() + adjust.imag() * adjust.imag() > 0.0000001) repeat = true;
             roots[i] -= adjust;
             if (diag) std::cerr << roots[i] << ' ';
             rootChanged(roots[i].real());
@@ -531,11 +534,17 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         std::cerr << p->toString() << std::endl << std::endl;
         p = p->facsum(tv);
         std::cerr << p->toString() << std::endl << std::endl;
+        std::cerr << '!' << p->simplify()->toString() << std::endl << std::endl;
     }
     if (polyrayfunc.get()) {
         std::cerr << polyrayfunc->toString() << std::endl << std::endl;
         //std::cerr << polyrayfunc->substitute(s)->toString() << std::endl;
         std::cerr << polyrayfunc->substitute(s)->facsum(tv)->toString() << std::endl;
+        std::cerr << '?' << polyrayfunc->substitute(s)->facsum(tv)->simplify()->toString() << std::endl;
+        for (uz i = 0; i < polyrayfunc_e.size(); ++i) {
+            std::cerr << polyrayfunc_e[i]() << ' ';
+        }
+        std::cerr << std::endl;
     }
     UVector f(rayfunc[0]->evaluateVector(tesize));
     UVector g(d_rayfunc->evaluateVector(tesize));
@@ -554,6 +563,30 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
         QPointF lastPoint(0, GSL_NAN);
         for (int i = 0; i < tesize; ++i) {
             QPointF newPoint((*te)[i], f[i]);
+            if (gsl_finite(lastPoint.y())) {
+                painter.drawLine(lastPoint, newPoint);
+            } else {
+                painter.drawPoint(newPoint);
+            }
+            lastPoint = newPoint;
+        }
+//        result.setPixel(i*diagw/tesize, diagh-((f[i]-min)*diagh/(max-min)));
+        painter.restore();
+    }
+    if (polyrayfunc) {
+    	UVector r(polyrayfunc->evaluateVector(tesize));
+        painter.save();
+/*        float mean, stdev;
+        analyze(f.get(), tesize, mean, stdev);
+        float min = mean - stdev, max = mean + stdev;
+        painter.scale(1, 1.f/qMax(qAbs(max), qAbs(min)));*/
+        float q1, q3;
+        quantile(f.get(), tesize, 12, q1, q3);
+        painter.scale(1, 0.5f/qMin(qAbs(q1), qAbs(q3)));
+        painter.setPen(QColor(200, 0, 200));
+        QPointF lastPoint(0, GSL_NAN);
+        for (int i = 0; i < tesize; ++i) {
+            QPointF newPoint((*te)[i], r[i]);
             if (gsl_finite(lastPoint.y())) {
                 painter.drawLine(lastPoint, newPoint);
             } else {

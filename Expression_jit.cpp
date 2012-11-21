@@ -52,7 +52,7 @@ XMMVar Constant::evaluate(Compiler& c) const {
 }
 
 XMMVar Neg::evaluate(Compiler& c) const {
-    static const __v4si neg = {1 << 31, 0, 1 << 31, 0};
+    static const __v4si neg = {0, 1 << 31, 0, 1 << 31};
     XMMVar ret = a->evaluate(c);
     c.xorps(ret, dqword_ptr_abs((void*) &neg));
     return ret;

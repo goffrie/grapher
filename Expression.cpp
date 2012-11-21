@@ -11,12 +11,14 @@
 #include <iomanip>
 #include <limits>
 
+#include <gsl/gsl_nan.h>
+
 //#define DEBUG_SIMPLIFY std::cerr << "simplifying at " << __LINE__ << " in " << __PRETTY_FUNCTION__ << ": " << toString() << std::endl;
 #define DEBUG_SIMPLIFY
 
 std::string tostr(float f) {
     std::ostringstream o;
-    o << std::showpoint << std::setprecision(1) << f;
+    o << std::showpoint << std::setprecision(4) << f;
     return o.str();
 }
 std::string tostr(int i) {
@@ -115,10 +117,18 @@ Vc::float_v acos(Vc::float_v v) {
     static const Vc::float_v halfpi(M_PI/2.);
     return halfpi - Vc::asin(v);
 }
+Vc::float_v sane_log(Vc::float_v v) {
+    Vc::float_m neg = !(v > 0.f), zero = v == 0.0f;
+    v(neg) = Vc::float_v::One();
+    v = Vc::log(v);
+    v(neg) = GSL_NAN;
+    v(zero) = GSL_NEGINF;
+    return v;
+}
 
 UNARY_VECTOR_EVALUATE(Neg, -)
 UNARY_VECTOR_EVALUATE(Sqrt, Vc::sqrt)
-UNARY_VECTOR_EVALUATE(Ln, Vc::log)
+UNARY_VECTOR_EVALUATE(Ln, sane_log)
 UNARY_VECTOR_EVALUATE(Exp, Vc::exp)
 UNARY_VECTOR_EVALUATE(Sin, Vc::sin)
 UNARY_VECTOR_EVALUATE(Cos, Vc::cos)
@@ -203,7 +213,20 @@ Vector Pow::evaluateVector(uz size) const {
     VectorR _a = a->evaluateVector(size);
     VectorR _b = b->evaluateVector(size);
     //for (uz i = 0; i < size; ++i) _a[i] = std::pow(_a[i], _b[i]);
-    VECTOR_LOOP V(_a) = Vc::exp(V(_b) * Vc::log(V(_a)));
+    VECTOR_LOOP {
+        Vc::float_v va, vb;
+        va.load(_a+i);
+        vb.load(_b+i);
+        Vc::float_m neg = !(va > Vc::float_v::Zero());
+        Vc::float_m zero = va == Vc::float_v::Zero();
+        Vc::float_v inf = Vc::float_v(GSL_POSINF);
+        va(neg) = Vc::float_v::One();
+        va = Vc::exp(vb * Vc::log(va));
+        va(neg) = Vc::float_v(GSL_NAN);
+        inf.setZero(vb > 0);
+        va(zero) = inf;
+        va.store(_a+i);
+    }
     VECTOR_FREE(_b);
     return _a;
 }
@@ -920,7 +943,8 @@ std::unique_ptr<Polynomial> Polynomial::create(const Variable& v, EPtr r) {
 EPtr Polynomial::simplify() const {
     DEBUG_SIMPLIFY
     if (!left.get()) return right->simplify();
-    return Expression::simplify();
+    return (left->simplify() * var.ecopy()) + right->simplify();
+    //return Expression::simplify();
 }
 
 std::string Polynomial::toString(int prec) const {

@@ -177,11 +177,11 @@ Buffer3D Buffer3D::copy() const {
 
 void Buffer3D::clear() {
     std::memset(m_pixels, -1, m_width*m_height*sizeof(QRgb));
-    std::size_t size = (m_width * m_height + 3) / Vc::float_v::Size;
-    const Vc::float_v neginf = (float) GSL_NEGINF;
-    for (Vc::float_v* zbuffer = reinterpret_cast<Vc::float_v*>(m_zbuffer), * end = zbuffer + size;
-        zbuffer != end;
-        ++zbuffer) *zbuffer = neginf;
+    uz size = m_width * m_height;
+    const Vc::float_v neginf(GSL_NEGINF);
+    for (uz i = 0; i < size; i += Vc::float_v::Size) {
+        neginf.store(m_zbuffer+i);
+    }
 }
 
 void Buffer3D::drawTransformPoint(const Vector3D<float>& p, QRgb c) {
