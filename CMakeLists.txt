@@ -34,6 +34,7 @@ set(grapher_SOURCES
     Graph3D.cpp
     Grapher2D.cpp
     Grapher3D.cpp
+    ImplicitGraph3D.cpp
     Parser.cpp
     MainWindow.cpp
     Window2DSettings.cpp
