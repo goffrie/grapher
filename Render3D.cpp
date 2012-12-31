@@ -279,10 +279,11 @@ void Buffer3D::drawBuffer(int x, int y, const Buffer3D& buf) {
     int xmax = qMin(x + buf.m_width, m_width);
     for (int Y = y; Y < ymax; ++Y) {
         for (int X = x; X < xmax; ++X) {
-            int idx = Y*m_width + X;
-            bool copy = m_zbuffer[idx] < buf.m_zbuffer[idx];
-            m_zbuffer[idx] = copy ? buf.m_zbuffer[idx] : m_zbuffer[idx];
-            m_pixels[idx] = copy ? buf.m_pixels[idx] : m_pixels[idx];
+            int myidx = Y*m_width + X, oidx = (Y-y)*buf.m_width + (X-x);
+            if (m_zbuffer[myidx] < buf.m_zbuffer[oidx]) {
+                m_zbuffer[myidx] = buf.m_zbuffer[oidx];
+                m_pixels[myidx] = buf.m_pixels[oidx];
+            }
         }
     }
 }
