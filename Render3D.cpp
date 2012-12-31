@@ -257,8 +257,8 @@ void Buffer3D::drawTransformLitPoint(Vector3D<float> p, Vector3D<float> n, int i
           nl = dot(n, m_light),
           nh = dot(n, m_half);
     if (nv < 0) {
+        // If `n' is facing the wrong way relative to the viewer, then flip everything.
         nl = -nl;
-        nv = -nv;
         nh = -nh;
     }
 
