@@ -1,5 +1,4 @@
-#include "Graph3D.h"
-#include "Render3D.h"
+#include "ImplicitGraph3D.h"
 
 #include "global.h"
 

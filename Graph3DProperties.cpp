@@ -2,7 +2,8 @@
 
 #include "Parser.h"
 #include "Expression.h"
-#include "Graph3D.h"
+#include "ImplicitGraph3D.h"
+#include "ParametricGraph3D.h"
 
 #include <exception>
 #include <algorithm>

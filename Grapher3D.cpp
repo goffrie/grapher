@@ -11,6 +11,9 @@
 #include "Render3D.h"
 #include "util.h"
 
+// This breaks encapsulation. Needed for diagnostics. TODO: make diagnostics part of the interface
+#include "ImplicitGraph3D.h"
+
 Grapher3D::Grapher3D(QWidget* parent) : QWidget(parent), needsRedraw(false), redrawTimer(new QTimer(this)), showAxes(true), diagnostic(nullptr) {
     redrawTimer->setInterval(1000 / 15);
     connect(redrawTimer, SIGNAL(timeout()), this, SLOT(scheduledUpdate()));

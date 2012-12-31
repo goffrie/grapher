@@ -32,9 +32,10 @@ set(grapher_SOURCES
     Graph.cpp
     Graph2D.cpp
     Graph3D.cpp
+    ImplicitGraph3D.cpp
+    ParametricGraph3D.cpp
     Grapher2D.cpp
     Grapher3D.cpp
-    ImplicitGraph3D.cpp
     Parser.cpp
     MainWindow.cpp
     Window2DSettings.cpp
@@ -52,6 +53,8 @@ set(grapher_HEADERS
     Graph.h
     Graph2D.h
     Graph3D.h
+    ImplicitGraph3D.h
+    ParametricGraph3D.h
     Grapher2D.h
     Grapher3D.h
     Parser.h
