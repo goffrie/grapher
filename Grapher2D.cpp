@@ -16,7 +16,6 @@ Grapher2D::Grapher2D(QWidget* parent) : QWidget(parent), needsRedraw(false), red
 }
 
 Grapher2D::~Grapher2D() {
-    foreach (Graph2D* graph, graphs) delete graph;
 }
 
 void Grapher2D::addGraph(QObject* id) {
@@ -40,7 +39,7 @@ void Grapher2D::resized() {
 
     foreach (Graph2D* graph, graphs) {
         if (!graph) continue;
-        graph->setupRestart(t, width(), height());
+        graph->setupRestart(t, size());
     }
 }
 
@@ -129,17 +128,15 @@ void Grapher2D::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     painter.fillRect(0, 0, width(), height(), Qt::white);
 
-    QList<QImage> images;
-    foreach (Graph2D* graph, graphs) {
-        if (!graph) continue;
-        QImage img = graph->img();
+    QList<QImage> toDraw;
+    foreach (QImage img, images) {
         if (img.isNull()) continue;
         if (img.size() != size()) {
             img = img.scaled(size());
         }
-        images.append(img);
+        toDraw.append(img);
     }
-    if (!images.empty()) painter.drawImage(0, 0, combine(images));
+    if (!toDraw.empty()) painter.drawImage(0, 0, combine(toDraw));
 
     if (showAxes) {
         painter.setPen(QColor(0, 0, 0, 192));
@@ -236,7 +233,7 @@ void Grapher2D::deleteGraph(QObject* id) {
     QMap<QObject*, Graph2D*>::iterator it = graphs.find(id);
     Graph2D* graph = it.value();
     if (graph) {
-        graph->cancel();
+        images.remove(graph);
         delete graph;
     }
     graphs.erase(it);
@@ -250,14 +247,23 @@ void Grapher2D::idDeleted(QObject* id) {
 void Grapher2D::changeGraph(QObject* id, Graph2D* graph) {
     Graph2D* g_graph = graphs[id];
     if (g_graph) {
-        g_graph->cancel();
+        images.remove(g_graph);
         delete g_graph;
     }
     graphs[id] = graph;
     graph->setParent(this);
-    connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
-    graph->setupRestart(transform, width(), height());
+    images.insert(graph, QImage());
+    connect(graph, SIGNAL(updated(QImage)), SLOT(graphUpdated(QImage)));
+    graph->setupRestart(transform, size());
 }
+
+void Grapher2D::graphUpdated(QImage img) {
+    QMap<Graph2D*, QImage>::iterator it = images.find(qobject_cast<Graph2D*>(sender()));
+    if (it == images.end()) return; // don't bother if the graph is about to leave
+    it.value() = img;
+    scheduleUpdate();
+}
+
 
 void Grapher2D::scheduleUpdate(bool now) {
     if (now || !redrawTimer->isActive()) {

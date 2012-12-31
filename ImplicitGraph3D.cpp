@@ -3,9 +3,6 @@
 
 #include "global.h"
 
-#include <QtConcurrentRun>
-#include <QtConcurrentMap>
-
 #include <QPainter>
 
 #include <iomanip>
@@ -42,12 +39,6 @@ dvz(Variable::Id("dvz", Variable::Id::Constant, &dv[2]))
 }
 
 ImplicitGraph3D::~ImplicitGraph3D() {
-}
-
-void ImplicitGraph3D::cancel() {
-    cancelled = true;
-    future.waitForFinished();
-    cancelled = false;
 }
 
 void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, const Variable& _y, const Variable& _z) {
@@ -88,10 +79,6 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     dz = func->derivative(z)->simplify();
 }
 
-void ImplicitGraph3D::startThread() {
-    future = QtConcurrent::run(this, &ImplicitGraph3D::restart);
-}
-
 // [a, b)
 template<typename T> QList<T> range(T a, T b) {
     QList<T> r;
@@ -99,44 +86,45 @@ template<typename T> QList<T> range(T a, T b) {
     return r;
 }
 
-void ImplicitGraph3D::restart() {
+void ImplicitGraph3D::compute() {
     _mm_empty();
-    const Transform3D inv = m_a->transform.inverted();
-    m_buf.setColor(m_color.rgba());
-    m_buf.setLight(m_a->light);
-    for (int Y = 0; Y < m_height; ++Y) {
-        UVector ox(VECTOR_ALLOC(m_width));
-        UVector oy(VECTOR_ALLOC(m_width));
-        UVector oz(VECTOR_ALLOC(m_width));
-        std::unique_ptr<int[]> opt(new int[m_width]);
+    const Transform3D inv = transform().inverted();
+    Buffer3D buffer(width(), height(), transform());
+    buffer.setColor(color().rgba());
+    buffer.setLight(light());
+
+    std::unique_ptr<int[]> opt(new int[width()]);
+    UVector ox(VECTOR_ALLOC(width()));
+    UVector oy(VECTOR_ALLOC(width()));
+    UVector oz(VECTOR_ALLOC(width()));
+    x.id->type = Variable::Id::Vector;
+    y.id->type = Variable::Id::Vector;
+    z.id->type = Variable::Id::Vector;
+    x.id->p = ox.get();
+    y.id->p = oy.get();
+    z.id->p = oz.get();
+    for (int Y = 0; Y < height(); ++Y) {
         std::size_t num = 0;
-        for (int X = 0; X < m_width; ++X) {
+        for (int X = 0; X < width(); ++X) {
             if (renderPoint(inv, X, Y, &ox[num], &oy[num], &oz[num])) {
-                opt[num] = m_width*Y+X;
+                opt[num] = width()*Y+X;
                 ++num;
             }
-            if (cancelled) return;
+            if (cancelled()) return;
         }
         if (num) {
-            x.id->type = Variable::Id::Vector;
-            y.id->type = Variable::Id::Vector;
-            z.id->type = Variable::Id::Vector;
-            x.id->p = ox.get();
-            y.id->p = oy.get();
-            z.id->p = oz.get();
-            VectorR vdx = dx->evaluateVector(num);
-            VectorR vdy = dy->evaluateVector(num);
-            VectorR vdz = dz->evaluateVector(num);
+            // compute normal vector
+            UVector vdx(dx->evaluateVector(num));
+            UVector vdy(dy->evaluateVector(num));
+            UVector vdz(dz->evaluateVector(num));
+            // draw points
             _mm_empty();
             for (std::size_t i = 0; i < num; ++i) {
-                m_buf.drawTransformLitPoint(Vector3D<float>(ox[i], oy[i], oz[i]), Vector3D<float>(vdx[i], vdy[i], vdz[i]), opt[i]);
-                if (cancelled) return;
+                buffer.drawTransformLitPoint(Vector3D<float>(ox[i], oy[i], oz[i]), Vector3D<float>(vdx[i], vdy[i], vdz[i]), opt[i]);
+                if (cancelled()) return;
             }
-            VECTOR_FREE(vdx);
-            VECTOR_FREE(vdy);
-            VECTOR_FREE(vdz);
         }
-        emit updated();
+        emit updated(new Buffer3D(buffer.copy()));
     }
 }
 
@@ -407,7 +395,7 @@ struct nullfunc { void operator()(...) { } };
 
 bool ImplicitGraph3D::renderPoint(const Transform3D& inv, int px, int py, Vector ox, Vector oy, Vector oz) {
     Ray ray;
-    if (!rayAtPoint(inv, m_a->eyeray, py, px, m_a->boxa, m_a->boxb, ray)) {
+    if (!rayAtPoint(inv, eyeray(), py, px, boxa(), boxb(), ray)) {
         return false;
     }
     v1[0] = ray.a.x();
@@ -461,7 +449,7 @@ QPixmap ImplicitGraph3D::diagnostics(const Transform3D& inv, int px, int py, QSi
     QPixmap result(size);
     result.fill(Qt::white);
     Ray ray;
-    if (!rayAtPoint(inv, m_a->eyeray, py, px, m_a->boxa, m_a->boxb, ray)) {
+    if (!rayAtPoint(inv, eyeray(), py, px, boxa(), boxb(), ray)) {
         return result;
     }
     QPainter painter(&result);

@@ -22,6 +22,9 @@ Grapher3D::Grapher3D(QWidget* parent) : QWidget(parent), needsRedraw(false), red
 }
 
 Grapher3D::~Grapher3D() {
+    foreach (Buffer3D* buf, images) {
+        delete buf;
+    }
 }
 
 void Grapher3D::mousePressEvent(QMouseEvent* event) {
@@ -87,7 +90,7 @@ void Grapher3D::resized() {
 
     foreach (Graph3D* graph, graphs) {
         if (!graph) continue;
-        graph->setupRestart(m_a->comb, width(), height(), m_a->boxa, m_a->boxb, m_a->light);
+        graph->setupRestart(m_a->comb, size(), m_a->boxa, m_a->boxb, m_a->light);
     }
 }
 
@@ -112,9 +115,9 @@ void Grapher3D::paintEvent(QPaintEvent*) {
         b.v[i] = m_a->boxb.v[i];
         buf.drawTransformLine(a, b, Qt::black);
     }
-    foreach (Graph3D* graph, graphs) {
-        if (!graph) continue;
-        buf.drawBuffer(0, 0, graph->buf());
+    foreach (Buffer3D* img, images) {
+        if (!img) continue;
+        buf.drawBuffer(0, 0, *img);
     }
     painter.drawImage(0, 0, buf.image());
 }
@@ -127,7 +130,7 @@ void Grapher3D::deleteGraph(QObject* id) {
     QMap<QObject*, Graph3D*>::iterator it = graphs.find(id);
     Graph3D* graph = it.value();
     if (graph) {
-        graph->cancel();
+        images.remove(graph);
         delete graph;
     }
     graphs.erase(it);
@@ -141,13 +144,22 @@ void Grapher3D::idDeleted(QObject* id) {
 void Grapher3D::changeGraph(QObject* id, Graph3D* graph) {
     Graph3D* g_graph = graphs[id];
     if (g_graph) {
-        g_graph->cancel();
+        images.remove(g_graph);
         delete g_graph;
     }
     graphs[id] = graph;
     graph->setParent(this);
-    connect(graph, SIGNAL(updated()), SLOT(scheduleUpdate()));
-    graph->setupRestart(m_a->comb, width(), height(), m_a->boxa, m_a->boxb, m_a->light);
+    images.insert(graph, nullptr);
+    connect(graph, SIGNAL(updated(Buffer3D*)), SLOT(graphUpdated(Buffer3D*)));
+    graph->setupRestart(m_a->comb, size(), m_a->boxa, m_a->boxb, m_a->light);
+}
+
+void Grapher3D::graphUpdated(Buffer3D* img) {
+    QMap<Graph3D*, Buffer3D*>::iterator it = images.find(qobject_cast<Graph3D*>(sender()));
+    if (it == images.end()) return; // don't bother if the graph is about to leave
+    if (it.value()) delete it.value();
+    it.value() = img;
+    scheduleUpdate();
 }
 
 void Grapher3D::scheduleUpdate(bool now) {

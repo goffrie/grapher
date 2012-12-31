@@ -18,8 +18,9 @@ class Grapher2D : public QWidget {
     QTimer* redrawTimer;
     bool showAxes;
     bool showGrid;
-public:
     QMap<QObject*, Graph2D*> graphs;
+    QMap<Graph2D*, QImage> images;
+public:
     Grapher2D(QWidget* parent = NULL);
     ~Grapher2D();
     void deleteGraph(QObject* id);
@@ -33,6 +34,7 @@ public slots:
     void changeGraph(QObject* id, Graph2D* graph);
     void resized();
     void setWindow(QRectF window);
+    void graphUpdated(QImage img);
     void scheduleUpdate(bool now = false);
     void scheduledUpdate();
 };

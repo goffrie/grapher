@@ -29,11 +29,15 @@ class Grapher3D : public QWidget {
     QLabel* diagnostic;
 
     QPoint mouse;
+    
+    QMap<QObject*, Graph3D*> graphs;
+    QMap<Graph3D*, Buffer3D*> images;
+
 protected:
     virtual void mousePressEvent(QMouseEvent*);
     virtual void mouseMoveEvent(QMouseEvent*);
+
 public:
-    QMap<QObject*, Graph3D*> graphs;
     Grapher3D(QWidget* parent = NULL);
     ~Grapher3D();
     void deleteGraph(QObject* id);
@@ -49,6 +53,7 @@ public slots:
     void resized();
     void setBox(Vector3D<float> boxa, Vector3D<float> boxb);
     void setLightSource(Vector3D<float> light);
+    void graphUpdated(Buffer3D* img);
     void scheduleUpdate(bool now = false);
     void scheduledUpdate();
 };
