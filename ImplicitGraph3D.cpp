@@ -127,46 +127,39 @@ void ImplicitGraph3D::compute() {
     }
 }
 
-template<int t> struct coord_tag {
-    enum { index = t };
-};
-typedef coord_tag<0> X;
-typedef coord_tag<1> Y;
-typedef coord_tag<2> Z;
-template<typename T, typename N> N get(const Vector3D<N>& v) { return v.get<T::index>(); }
-template<typename T, typename N> void set(Vector3D<N>& v, N n) { v.set<T::index>(n); }
+BOOST_CONSTEXPR_OR_CONST int X = 0, Y = 1, Z = 2;
 
 struct Ray {
     Vector3D<float> a, b;
     Ray() {}
     Ray(Vector3D<float> _a, Vector3D<float> _b) : a(_a), b(_b) { }
     Vector3D<float> eval(float t) { return a + (b-a) * t; }
-    template<typename T> float evalC(float t) const { return get<T>(a) + (get<T>(b) - get<T>(a)) * t; }
-    template<typename T> EPtr evaluator(EPtr t) const {
-        return Constant::create(get<T>(a)) + Constant::create(get<T>(b) - get<T>(a)) * std::move(t);
+    template<int T> float evalC(float t) const { return a.get<T>() + (b.get<T>() - a.get<T>()) * t; }
+    template<int T> EPtr evaluator(EPtr t) const {
+        return Constant::create(a.get<T>()) + Constant::create(b.get<T>() - a.get<T>()) * std::move(t);
     }
 };
 
-template<typename T, typename U, typename V> bool intersect(const Ray& r, float t, float u1, float u2, float v1, float v2, float& q, Vector3D<float>& pt) {
-    float qn = t - get<T>(r.a), qd = get<T>(r.b) - get<T>(r.a);
+template<int T, int U, int V> bool intersect(const Ray& r, float t, float u1, float u2, float v1, float v2, float& q, Vector3D<float>& pt) {
+    float qn = t - r.a.get<T>(), qd = r.b.get<T>() - r.a.get<T>();
     if (qd == 0) return false;
     q = qn / qd;
     float u = r.evalC<U>(q);
     if (u < u1 || u > u2) return false;
     float v = r.evalC<V>(q);
     if (v < v1 || v > v2) return false;
-    set<T>(pt, t);
-    set<U>(pt, u);
-    set<V>(pt, v);
+    pt.set<T>(t);
+    pt.set<U>(u);
+    pt.set<V>(v);
     return true;
 }
-template<typename T, typename U, typename V> bool intersect2(const Ray& r, const Vector3D<float>& boxa, const Vector3D<float>& boxb, float* q, Vector3D<float>* pt, int& n) {
-    (intersect<T, U, V>(r, get<T>(boxa), get<U>(boxa), get<U>(boxb), get<V>(boxa), get<V>(boxb), q[n], pt[n]) && ++n);
+template<int T, int U, int V> bool intersect2(const Ray& r, const Vector3D<float>& boxa, const Vector3D<float>& boxb, float* q, Vector3D<float>* pt, int& n) {
+    (intersect<T, U, V>(r, boxa.get<T>(), boxa.get<U>(), boxb.get<U>(), boxa.get<V>(), boxb.get<V>(), q[n], pt[n]) && ++n);
     if (n==2) {
         if (q[1]==q[0]) --n;
         else return true;
     }
-    (intersect<T, U, V>(r, get<T>(boxb), get<U>(boxa), get<U>(boxb), get<V>(boxa), get<V>(boxb), q[n], pt[n]) && ++n);
+    (intersect<T, U, V>(r, boxb.get<T>(), boxa.get<U>(), boxb.get<U>(), boxa.get<V>(), boxb.get<V>(), q[n], pt[n]) && ++n);
     if (n==2) {
         if (q[1]==q[0]) --n;
         else return true;
