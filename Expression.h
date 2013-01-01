@@ -18,10 +18,20 @@
 
 #include "align.h"
 
-#include <AsmJit/AsmJit.h>
 #include <Vc/Vc>
 
 #include "global.h"
+
+#include <llvm/DerivedTypes.h>
+#include <llvm/IRBuilder.h>
+
+namespace llvm {
+    class FunctionPassManager;
+    class ExecutionEngine;
+    class Value;
+    class Module;
+class Function;
+}
 
 struct Variable;
 namespace std {
@@ -44,6 +54,13 @@ namespace Precedence {
     };
 }
 
+struct MathContext {
+    llvm::ExecutionEngine* jitEngine;
+    llvm::FunctionPassManager* fpm;
+    llvm::Module* module;
+    static MathContext defaultContext();
+};
+
 struct Thing {
     virtual ~Thing() { };
     virtual std::string toString(int precedence = -1) const = 0;
@@ -53,19 +70,22 @@ struct Polynomial;
 typedef std::unique_ptr<Expression> EPtr;
 typedef double (*EvalFunc)();
 // typedef __v4sf (*VectorFunc)(int);
+void dispose(llvm::Function* f);
 template<typename T>
 class Wrap {
 private:
-    T f;
+    llvm::Function* lfunc;
+    T func;
 public:
-    Wrap() : f(nullptr) { }
-    Wrap(T _f) : f(_f) { }
-    Wrap(Wrap<T>&& _f) : f(_f.f) { _f.f = nullptr; }
-    ~Wrap() { if (f) AsmJit::MemoryManager::getGlobal()->free((void*)f); }
+    Wrap() : lfunc(nullptr), func(nullptr) { }
+    Wrap(llvm::Function* l, T f) : lfunc(l), func(f) { }
+    Wrap(Wrap<T>&& _f) : lfunc(_f.lfunc), func(_f.func) { _f.lfunc = nullptr; _f.func = nullptr; }
+    ~Wrap() { dispose(lfunc); }
     template<typename... R>
-    auto operator()(R&&... i) const -> decltype(f(i...)) { return f(std::forward<R>(i)...); }
+    auto operator()(R&&... i) const -> decltype(func(i...)) { return func(std::forward<R>(i)...); }
     Wrap<T>& operator=(Wrap<T>&& _f) {
-        std::swap(f, _f.f);
+        std::swap(lfunc, _f.lfunc);
+        std::swap(func, _f.func);
         return *this;
     }
 };
@@ -75,10 +95,8 @@ struct Expression : public Thing {
     typedef std::unordered_map<Variable, Expression*> Subst;
     virtual Number evaluate() const = 0;
     virtual Vector evaluateVector(uz size) const = 0;
-    EvalFunc evaluator() const;
-//    VectorFunc evaluatorVector() const;
-    virtual AsmJit::XMMVar evaluate(AsmJit::Compiler&) const = 0;
-//    virtual AsmJit::XMMVar evaluateVector(AsmJit::Compiler&, const AsmJit::GPVar&) const = 0;
+    WEvalFunc evaluator(MathContext& context) const;
+    virtual llvm::Value* evaluateJIT(llvm::IRBuilder<>& builder, MathContext& context) const = 0;
     virtual EPtr substitute(const Subst& s) const = 0;
     virtual EPtr derivative(const Variable& var) const = 0;
     virtual EPtr simplify() const { return EPtr(copy()); }
@@ -95,8 +113,7 @@ struct Constant : public Expression {
     static std::unique_ptr<Constant> create(Number _c) { return std::unique_ptr<Constant>(new Constant(_c)); }
     Number evaluate() const { return c; }
     Vector evaluateVector(uz size) const;
-    AsmJit::XMMVar evaluate(AsmJit::Compiler& c) const;
-//    AsmJit::XMMVar evaluateVector(AsmJit::Compiler& c, const AsmJit::GPVar& i) const;
+    llvm::Value* evaluateJIT(llvm::IRBuilder<>& builder, MathContext& context) const;
     EPtr substitute(const Subst&) const { return EPtr(copy()); }
     EPtr derivative(const Variable&) const { return EPtr(new Constant(0)); }
     void variables(std::set<Variable>&) const { }
@@ -125,8 +142,7 @@ struct Variable : public Expression {
     static std::unique_ptr<Variable> create(const Variable& b) { return std::unique_ptr<Variable>(new Variable(b)); }
     Number evaluate() const;
     Vector evaluateVector(uz size) const;
-    AsmJit::XMMVar evaluate(AsmJit::Compiler& c) const;
-//    AsmJit::XMMVar evaluateVector(AsmJit::Compiler& c, const AsmJit::GPVar& i) const;
+    llvm::Value* evaluateJIT(llvm::IRBuilder<>& builder, MathContext& context) const;
     EPtr substitute(const Subst& s) const {
         Subst::const_iterator p = s.find(*this);
         if (p == s.end()) return EPtr(copy());
@@ -155,7 +171,6 @@ struct UnaryOp : public Expression {
     UnaryOp(EPtr _a) : a(std::move(_a)) { }
     virtual Number evaluate(Number _a) const = 0;
     virtual Number evaluate() const override = 0;
-    virtual AsmJit::XMMVar evaluate(AsmJit::Compiler&) const override = 0;
     EPtr simplify() const;
     void variables(std::set<Variable>& vars) const { a->variables(vars); }
     virtual UnaryOp* construct(EPtr _a) const = 0;
@@ -172,8 +187,7 @@ struct Name : public UnaryOp { \
     Number evaluate(Number _a) const; \
     Number evaluate() const; \
     Vector evaluateVector(uz size) const; \
-    AsmJit::XMMVar evaluate(AsmJit::Compiler& c) const; \
-/*    AsmJit::XMMVar evaluateVector(AsmJit::Compiler& c, const AsmJit::GPVar& i) const; */ \
+    llvm::Value* evaluateJIT(llvm::IRBuilder<>& builder, MathContext& context) const; \
     EPtr derivative(const Variable& var) const; \
     Name* construct(EPtr _a) const { return new Name(std::move(_a)); } \
     static std::unique_ptr<Name> create(EPtr _a) { return std::unique_ptr<Name>(new Name(std::move(_a))); } \
@@ -216,8 +230,7 @@ struct Name : public BinaryOp { \
     Number evaluate() const { return evaluate(a->evaluate(), b->evaluate()); } \
     Number evaluate(Number _1, Number _2) const { return expr; } \
     Vector evaluateVector(uz size) const; \
-    AsmJit::XMMVar evaluate(AsmJit::Compiler& c) const; \
-/*    AsmJit::XMMVar evaluateVector(AsmJit::Compiler& c, const AsmJit::GPVar& i) const; */\
+    llvm::Value* evaluateJIT(llvm::IRBuilder<>& builder, MathContext& context) const; \
     EPtr derivative(const Variable& var) const; \
     EPtr simplify() const; \
     Name* construct(EPtr _a, EPtr _b) const { return new Name(std::move(_a), std::move(_b)); } \
@@ -249,8 +262,7 @@ struct PowInt : public UnaryOp {
     Number evaluate() const;
     Number evaluate(Number _a) const;
     Vector evaluateVector(uz size) const;
-    AsmJit::XMMVar evaluate(AsmJit::Compiler& c) const;
-//    AsmJit::XMMVar evaluateVector(AsmJit::Compiler& c, const AsmJit::GPVar& i) const;
+    llvm::Value* evaluateJIT(llvm::IRBuilder<>& builder, MathContext& context) const;
     EPtr derivative(const Variable& var) const;
     EPtr simplify() const;
     PowInt* construct(EPtr _a) const { return new PowInt(std::move(_a), b); }
@@ -271,8 +283,7 @@ struct Polynomial : public Expression {
     Polynomial(const Variable& v, EPtr r) : var(v), right(std::move(r)) { }
     Number evaluate() const;
     Vector evaluateVector(uz size) const;
-    AsmJit::XMMVar evaluate(AsmJit::Compiler& c) const;
-//    AsmJit::XMMVar evaluateVector(AsmJit::Compiler& c, const AsmJit::GPVar& i) const;
+    llvm::Value* evaluateJIT(llvm::IRBuilder<>& builder, MathContext& context) const;
     EPtr substitute(const Subst& s) const;
     EPtr derivative(const Variable& var) const;
     EPtr simplify() const;
@@ -294,8 +305,7 @@ struct PolyGamma : public UnaryOp {
     Number evaluate() const;
     Number evaluate(Number _a) const;
     Vector evaluateVector(uz size) const;
-    AsmJit::XMMVar evaluate(AsmJit::Compiler& c) const;
-//    AsmJit::XMMVar evaluateVector(AsmJit::Compiler& c, const AsmJit::GPVar& i) const;
+    llvm::Value* evaluateJIT(llvm::IRBuilder<>& builder, MathContext& context) const;
     EPtr derivative(const Variable& var) const;
     PolyGamma* construct(EPtr _a) const { return new PolyGamma(std::move(_a), b); }
     std::string toString(int prec = -1) const;

@@ -39,7 +39,8 @@ int main(int argc, char *argv[]) {
         std::unique_ptr<Thing> p = Parser::parse(s, vars);
         std::cout << p->toString() << std::endl;
         EPtr q = dynamic_unique_cast<Expression>(std::move(p));
-        EvalFunc e = q->evaluator();
+        MathContext ctx = MathContext::defaultContext();
+        WEvalFunc e = q->evaluator(ctx);
         double r = e();
         std::cout << r << std::endl;
         return 0;

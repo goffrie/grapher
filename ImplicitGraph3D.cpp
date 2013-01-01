@@ -40,7 +40,11 @@ dvz(Variable::Id("dvz", Variable::Id::Constant, &dv[2]))
 ImplicitGraph3D::~ImplicitGraph3D() {
 }
 
+// HACK: make this not a global variable, etc.
+static MathContext* ctx = nullptr;
+
 void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, const Variable& _y, const Variable& _z) {
+    if (!ctx) ctx = new MathContext(MathContext::defaultContext());
     x = _x;
     y = _y;
     z = _z;
@@ -60,7 +64,7 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
         polyrayfunc_e.resize(d+1);
         for (int i = d; i >= 0; --i) {
             Q_ASSERT(poly);
-            polyrayfunc_e[i] = poly->right->evaluator();
+            polyrayfunc_e[i] = poly->right->evaluator(*ctx);
             poly = poly->left.get();
         }
         Q_ASSERT(!poly);
@@ -68,7 +72,7 @@ void ImplicitGraph3D::reset(std::unique_ptr<Equation> rel, const Variable& _x, c
     rayfunc[1] = rayfunc[0]->derivative(tv)->simplify();
     rayfunc[2] = rayfunc[1]->derivative(tv)->simplify();
     for (int i = 0; i < 3; ++i) {
-        rayfunc_e[i] = rayfunc[i]->evaluator();
+        rayfunc_e[i] = rayfunc[i]->evaluator(*ctx);
     }
     //rayfunc_v = rayfunc[0]->evaluatorVector();
     d_rayfunc = (rayfunc[0]->ecopy() / rayfunc[1]->ecopy())->simplify();

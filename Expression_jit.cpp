@@ -1,61 +1,81 @@
 #include "Expression.h"
 
-using namespace AsmJit;
+// TODO: make this not terrible
+#undef V
 
-static_assert(sizeof(sysint_t) == sizeof(void*), "sysint_t has the wrong size");
+#include <llvm/DerivedTypes.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/JIT.h>
+#include <llvm/IRBuilder.h>
+#include <llvm/LLVMContext.h>
+#include <llvm/Module.h>
+#include <llvm/PassManager.h>
+#include <llvm/Analysis/Verifier.h>
+#include <llvm/Analysis/Passes.h>
+#include <llvm/DataLayout.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Intrinsics.h>
 
-EvalFunc Expression::evaluator() const {
-    Compiler c;
-    c.setLogger(new FileLogger(stdout));
-    c.newFunction(CALL_CONV_DEFAULT, FunctionBuilder0<double>());
-    c.ret(evaluate(c));
-    c.endFunction();
-    return (EvalFunc)c.make();
+using namespace llvm;
+
+void dispose(Function* f) {
+    if (f) f->eraseFromParent();
 }
 
-XMMVar Variable::evaluate(Compiler& c) const {
-    XMMVar ret = c.newXMM();
+MathContext MathContext::defaultContext() {
+    static bool herp = true;
+    if (herp) { herp = false; InitializeNativeTarget(); }
+    Module* module = new Module("derp", getGlobalContext());
+    ExecutionEngine* engine = EngineBuilder(module).create();
+    
+    FunctionPassManager* fpm = new FunctionPassManager(module);
+    fpm->add(new DataLayout(*engine->getDataLayout()));
+    fpm->add(createBasicAliasAnalysisPass());
+    fpm->add(createInstructionCombiningPass());
+    fpm->add(createReassociatePass());
+    fpm->add(createGVNPass());
+    fpm->add(createCFGSimplificationPass());
+    fpm->doInitialization();
+
+    return { engine, fpm, module };
+}
+
+WEvalFunc Expression::evaluator(MathContext& context) const {
+    FunctionType* type = FunctionType::get(Type::getDoubleTy(getGlobalContext()), false);
+    Function* func = Function::Create(type, Function::ExternalLinkage, "", context.module);
+    BasicBlock* block = BasicBlock::Create(getGlobalContext(), "entrypoint", func);
+    auto builder = IRBuilder<>(block);
+    builder.CreateRet(evaluateJIT(builder, context));
+    verifyFunction(*func);
+    func->dump();
+    context.fpm->run(*func); // optimize
+    func->dump();
+    // Run JIT
+    auto fptr = reinterpret_cast<EvalFunc>(context.jitEngine->getPointerToFunction(func));
+    return WEvalFunc(func, fptr);
+}
+
+Value* Variable::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
     switch (id->type) {
         case Id::Constant:
         case Id::Vector:
-#ifdef ASMJIT_X64
-// stupid x86-64 quirk: no absolute 64-bit addressing for most instructions
-            if ((sysuint_t) id->p > (sysuint_t) 0xFFFFFFFF) {
-                GPVar temp = c.newGP();
-                c.mov(temp, imm((sysint_t) (void*) id->p));
-                c.movss(ret, dword_ptr(temp));
-                c.unuse(temp);
-            } else
-#endif
-                c.movss(ret, dword_ptr_abs((void*) id->p));
-            c.cvtss2sd(ret, ret); // convert float to double
-            return ret;
+            return builder.CreateCast(Instruction::FPExt, 
+                builder.CreateLoad(
+                    llvm::Constant::getIntegerValue(Type::getFloatPtrTy(builder.getContext()),
+                    APInt(sizeof(float*)*8, reinterpret_cast<uint64_t>(id->p)))),
+                Type::getDoubleTy(builder.getContext()));
         default:
             throw this;
     }
 }
 
-XMMVar Constant::evaluate(Compiler& c) const {
-    XMMVar ret = c.newXMM();
-#ifdef ASMJIT_X64
-// stupid x86-64 quirk: no absolute 64-bit addressing for most instructions
-    if ((sysuint_t) &this->c > (sysuint_t) 0xFFFFFFFF) {
-        GPVar temp = c.newGP();
-        c.mov(temp, imm((sysint_t) (void*) &this->c));
-        c.movss(ret, dword_ptr(temp));
-        c.unuse(temp);
-    } else
-#endif
-        c.movss(ret, dword_ptr_abs((void*) &this->c));
-    c.cvtss2sd(ret, ret); // convert float to double
-    return ret;
+Value* ::Constant::evaluateJIT(IRBuilder<>& builder, MathContext&) const {
+    return ConstantFP::get(Type::getDoubleTy(builder.getContext()), c);
 }
 
-XMMVar Neg::evaluate(Compiler& c) const {
-    static const __v4si neg = {0, 1 << 31, 0, 1 << 31};
-    XMMVar ret = a->evaluate(c);
-    c.xorps(ret, dqword_ptr_abs((void*) &neg));
-    return ret;
+Value* Neg::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    return builder.CreateFNeg(a->evaluateJIT(builder, context));
 }
 
 typedef double (*UnaryDoubleFunc)(double);
@@ -73,428 +93,92 @@ typedef double (*IntDoubleFunc)(int, double);
     ctx->setReturn(ret); \
     c.unuse(arg);
 
-XMMVar Exp::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c);
-    CALL_UNARY(std::exp, _a, ret);
-    return ret;
+#define UNARY_INTRINSIC_FUNCTION(name, func) \
+Value* name::evaluateJIT(IRBuilder<>& builder, MathContext& context) const { \
+    return builder.CreateCall(Intrinsic::getDeclaration(context.module, Intrinsic::func, Type::getDoubleTy(builder.getContext())), \
+        a->evaluateJIT(builder, context)); \
 }
 
-XMMVar Ln::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c);
-    CALL_UNARY(std::log, _a, ret);
-    return ret;
+UNARY_INTRINSIC_FUNCTION(Exp, exp)
+UNARY_INTRINSIC_FUNCTION(Ln, log)
+UNARY_INTRINSIC_FUNCTION(Sqrt, sqrt)
+UNARY_INTRINSIC_FUNCTION(Sin, sin)
+UNARY_INTRINSIC_FUNCTION(Cos, cos)
+
+Value* Tan::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    Value* theta = a->evaluateJIT(builder, context);
+    return builder.CreateFDiv(
+        builder.CreateCall(Intrinsic::getDeclaration(context.module, Intrinsic::sin, Type::getDoubleTy(builder.getContext())), theta),
+        builder.CreateCall(Intrinsic::getDeclaration(context.module, Intrinsic::cos, Type::getDoubleTy(builder.getContext())), theta));
 }
 
-XMMVar Sqrt::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    c.sqrtsd(ret, ret);
-    return ret;
+#define UNARY_EXTERNAL_FUNCTION(name, func) \
+Value* name::evaluateJIT(IRBuilder<>& builder, MathContext& context) const { \
+    return builder.CreateCall(getUnaryGlobalFunction(builder, context, #func), a->evaluateJIT(builder, context)); \
 }
 
-XMMVar Sin::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c);
-    CALL_UNARY(std::sin, _a, ret);
-    return ret;
+static Function* getUnaryGlobalFunction(IRBuilder<>& builder, MathContext& context, const char* name) {
+    Function* exists = context.module->getFunction(name);
+    if (exists) return exists;
+    std::vector<Type*> argtypes(1, Type::getDoubleTy(builder.getContext()));
+    FunctionType* type = FunctionType::get(Type::getDoubleTy(builder.getContext()), argtypes, false);
+    return Function::Create(type, Function::ExternalLinkage, name, context.module);
 }
 
-XMMVar Cos::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c);
-    CALL_UNARY(std::cos, _a, ret);
-    return ret;
+UNARY_EXTERNAL_FUNCTION(Asin, asin)
+UNARY_EXTERNAL_FUNCTION(Acos, acos)
+UNARY_EXTERNAL_FUNCTION(Atan, atan)
+UNARY_EXTERNAL_FUNCTION(Gamma, gsl_sf_gamma)
+
+Value* Add::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    return builder.CreateFAdd(a->evaluateJIT(builder, context), b->evaluateJIT(builder, context));
 }
 
-XMMVar Tan::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c);
-    CALL_UNARY(std::tan, _a, ret);
-    return ret;
+Value* Sub::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    return builder.CreateFSub(a->evaluateJIT(builder, context), b->evaluateJIT(builder, context));
 }
 
-XMMVar Asin::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c);
-    CALL_UNARY(std::asin, _a, ret);
-    return ret;
+Value* Mul::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    return builder.CreateFMul(a->evaluateJIT(builder, context), b->evaluateJIT(builder, context));
 }
 
-XMMVar Acos::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c);
-    CALL_UNARY(std::acos, _a, ret);
-    return ret;
+Value* Div::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    return builder.CreateFDiv(a->evaluateJIT(builder, context), b->evaluateJIT(builder, context));
 }
 
-XMMVar Atan::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c);
-    CALL_UNARY(std::atan, _a, ret);
-    return ret;
+Value* PowInt::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    return builder.CreateCall2(Intrinsic::getDeclaration(context.module, Intrinsic::powi, Type::getDoubleTy(builder.getContext())),
+                               a->evaluateJIT(builder, context),
+                               ConstantInt::getSigned(Type::getInt32Ty(builder.getContext()), b));
 }
 
-XMMVar Gamma::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c);
-    CALL_UNARY(gsl_sf_gamma, _a, ret);
-    return ret;
+Value* Polynomial::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    if (!left.get()) return right->evaluateJIT(builder, context);
+    return builder.CreateFAdd(
+        builder.CreateFMul(
+            left->evaluateJIT(builder, context),
+            var.evaluateJIT(builder, context)
+        ),
+        right->evaluateJIT(builder, context)
+    );
 }
 
-XMMVar Add::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c),
-           xb = b->evaluate(c);
-    c.addsd(ret, xb);
-    c.unuse(xb);
-    return ret;
+Value* Pow::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    return builder.CreateCall2(Intrinsic::getDeclaration(context.module, Intrinsic::pow, Type::getDoubleTy(builder.getContext())),
+                               a->evaluateJIT(builder, context),
+                               b->evaluateJIT(builder, context));
 }
 
-XMMVar Sub::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c),
-           xb = b->evaluate(c);
-    c.subsd(ret, xb);
-    c.unuse(xb);
-    return ret;
-}
-
-XMMVar Mul::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c),
-           xb = b->evaluate(c);
-    c.mulsd(ret, xb);
-    c.unuse(xb);
-    return ret;
-}
-
-XMMVar Div::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c),
-           xb = b->evaluate(c);
-    c.divsd(ret, xb);
-    c.unuse(xb);
-    return ret;
-}
-
-XMMVar PowInt::evaluate(Compiler& c) const {
-    static const double one = 1.;
-    if (b == 0) {
-        XMMVar ret = c.newXMM();
-        c.movsd(ret, qword_ptr_abs((void*) &one));
-        return ret;
+Value* PolyGamma::evaluateJIT(IRBuilder<>& builder, MathContext& context) const {
+    Function* func = context.module->getFunction("gsl_sf_psi_n");
+    if (!func) {
+        std::vector<Type*> argtypes;
+        argtypes.push_back(Type::getInt32Ty(builder.getContext()));
+        argtypes.push_back(Type::getDoubleTy(builder.getContext()));
+        FunctionType* type = FunctionType::get(Type::getDoubleTy(builder.getContext()), argtypes, false);
+        func = Function::Create(type, Function::ExternalLinkage, "gsl_sf_psi_n", context.module);
     }
-    XMMVar _a = a->evaluate(c),
-           ret;
-    int _b = b;
-    bool neg = _b < 0;
-    if (neg) _b = -_b;
-    bool started = false;
-    while (_b > 0) {
-        if (_b & 1) {
-            if (started) {
-                c.mulsd(ret, _a);
-            } else {
-                if (_b == 1) {
-                    ret = _a;
-                } else {
-                    ret = c.newXMM();
-                    c.movsd(ret, _a);
-                    started = true;
-                }
-            }
-        }
-        _b >>= 1;
-        if (_b > 0) c.mulsd(_a, _a);
-    }
-    if (started) c.unuse(_a);
-    if (neg) {
-        XMMVar temp = c.newXMM();
-        c.movsd(temp, qword_ptr_abs((void*) &one));
-        c.divsd(temp, ret);
-        c.unuse(ret);
-        ret = temp;
-    }
-    return ret;
+    return builder.CreateCall2(func, ConstantInt::getSigned(Type::getInt32Ty(builder.getContext()), b),
+        a->evaluateJIT(builder, context)
+    );
 }
-
-XMMVar Polynomial::evaluate(Compiler& c) const {
-    if (!left.get()) return right->evaluate(c);
-    XMMVar _l = left->evaluate(c);
-    XMMVar _c = c.newXMM();
-    switch (var.id->type) {
-        case Variable::Id::Constant:
-        case Variable::Id::Vector:
-            c.movss(_c, dword_ptr_abs((void*) var.id->p));
-            c.cvtss2sd(_c, _c);
-            break;
-        default: throw var;
-    }
-    c.mulsd(_l, _c);
-    c.unuse(_c);
-    XMMVar _r = right->evaluate(c);
-    c.addsd(_l, _r);
-    c.unuse(_r);
-    return _l;
-}
-
-XMMVar Pow::evaluate(Compiler& c) const {
-    XMMVar _a = a->evaluate(c),
-           _b = b->evaluate(c);
-    GPVar addr = c.newGP();
-    c.mov(addr, imm((sysint_t)BinaryDoubleFunc(&std::pow)));
-    ECall* ctx = c.call(addr);
-    c.unuse(addr);
-    ctx->setPrototype(CALL_CONV_DEFAULT, FunctionBuilder2<double, double, double>());
-    XMMVar ret = c.newXMM();
-    ctx->setArgument(0, _a);
-    ctx->setArgument(1, _b);
-    ctx->setReturn(ret);
-    c.unuse(_a);
-    c.unuse(_b);
-    return _b;
-}
-
-XMMVar PolyGamma::evaluate(Compiler& c) const {
-    XMMVar ret = a->evaluate(c);
-    GPVar addr = c.newGP();
-    c.mov(addr, imm((sysint_t)IntDoubleFunc(&gsl_sf_psi_n)));
-    ECall* ctx = c.call(addr);
-    c.unuse(addr);
-    ctx->setPrototype(CALL_CONV_DEFAULT, FunctionBuilder2<double, int, double>());
-    ctx->setArgument(0, imm(b));
-    ctx->setArgument(1, ret);
-    ctx->setReturn(ret);
-    return ret;
-}
-
-#if 0
-VectorFunc Expression::evaluatorVector() const {
-    Compiler c;
-    c.setLogger(new FileLogger(stdout));
-    c.newFunction(CALL_CONV_DEFAULT, FunctionBuilder1<float, int>()); // HACK: returning a "float" but really a v4sf
-    c.ret(evaluateVector(c, c.argGP(0)));
-    c.endFunction();
-    return (VectorFunc)c.make();
-}
-
-XMMVar Variable::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = c.newXMM();
-    switch (id->type) {
-        case Id::Constant:
-#ifdef ASMJIT_X64
-// stupid x86-64 quirk: no absolute 64-bit addressing for most instructions
-            if ((sysuint_t) id->p > (sysuint_t) 0xFFFFFFFF) {
-                GPVar temp = c.newGP();
-                c.mov(temp, imm((sysint_t) (void*) id->p));
-                c.movss(ret, dword_ptr(temp));
-                c.unuse(temp);
-            } else
-#endif
-                c.movss(ret, dword_ptr_abs((void*) id->p));
-            c.shufps(ret, ret, imm(0x00)); // replicate least significant data element
-            return ret;
-        case Id::Vector:
-#ifdef ASMJIT_X64
-// stupid x86-64 quirk: no absolute 64-bit addressing for most instructions
-            if ((sysuint_t) id->p > (sysuint_t) 0xFFFFFFFF) {
-                GPVar temp = c.newGP();
-                c.mov(temp, imm((sysint_t) (void*) id->p));
-                c.movss(ret, dword_ptr(temp, i, 2));
-                c.unuse(temp);
-            } else
-#endif
-                c.movaps(ret, dqword_ptr_abs((void*) id->p, i, 2));
-            return ret;
-        default:
-            throw this;
-    }
-}
-
-XMMVar Constant::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = c.newXMM();
-#ifdef ASMJIT_X64
-// stupid x86-64 quirk: no absolute 64-bit addressing for most instructions
-    if ((sysuint_t) &this->c > (sysuint_t) 0xFFFFFFFF) {
-        GPVar temp = c.newGP();
-        c.mov(temp, imm((sysint_t) (void*) &this->c));
-        c.movss(ret, dword_ptr(temp));
-        c.unuse(temp);
-    } else
-#endif
-        c.movss(ret, dword_ptr_abs((void*) &this->c));
-    c.shufps(ret, ret, imm(0x00)); // replicate least significant data element
-    return ret;
-}
-
-XMMVar Neg::evaluateVector(Compiler& c, const GPVar& i) const {
-    static const __v4si neg = {1 << 31, 1 << 31, 1 << 31, 1 << 31};
-    XMMVar ret = a->evaluateVector(c, i);
-    c.xorps(ret, dqword_ptr_abs((void*) &neg));
-    return ret;
-}
-
-#define CALL_SSE(func, arg, ret) \
-    GPVar addr = c.newGP(); \
-    c.mov(addr, imm((sysint_t)(&func))); \
-    ECall* ctx = c.call(addr); \
-    c.unuse(addr); \
-    ctx->setPrototype(CALL_CONV_DEFAULT, FunctionBuilder1<float, float>()); /* HACK */ \
-    XMMVar ret = c.newXMM(); \
-    ctx->setArgument(0, arg); \
-    ctx->setReturn(ret); \
-    c.unuse(arg);
-
-XMMVar Exp::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar _a = a->evaluateVector(c, i);
-    CALL_SSE(exp_ps, _a, ret);
-    return ret;
-}
-
-XMMVar Ln::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar _a = a->evaluateVector(c, i);
-    CALL_SSE(log_ps, _a, ret);
-    return ret;
-}
-
-XMMVar Sqrt::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    c.sqrtps(ret, ret);
-    return ret;
-}
-
-XMMVar Sin::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar _a = a->evaluateVector(c, i);
-    CALL_SSE(sin_ps, _a, ret);
-    return ret;
-}
-
-XMMVar Cos::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar _a = a->evaluateVector(c, i);
-    CALL_SSE(cos_ps, _a, ret);
-    return ret;
-}
-
-XMMVar Tan::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar _a = a->evaluateVector(c, i);
-    CALL_SSE(tan_ps, _a, ret);
-    return ret;
-}
-
-#define CALL_UNARY_VECTOR(func, arg, ret)
-
-XMMVar Asin::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
-    return ret;
-}
-
-XMMVar Acos::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
-    return ret;
-}
-
-XMMVar Atan::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
-    return ret;
-}
-
-XMMVar Gamma::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
-    return ret;
-}
-
-XMMVar Add::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i),
-           xb = b->evaluateVector(c, i);
-    c.addps(ret, xb);
-    c.unuse(xb);
-    return ret;
-}
-
-XMMVar Sub::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i),
-           xb = b->evaluateVector(c, i);
-    c.subps(ret, xb);
-    c.unuse(xb);
-    return ret;
-}
-
-XMMVar Mul::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i),
-           xb = b->evaluateVector(c, i);
-    c.mulps(ret, xb);
-    c.unuse(xb);
-    return ret;
-}
-
-XMMVar Div::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i),
-           xb = b->evaluateVector(c, i);
-    c.divps(ret, xb);
-    c.unuse(xb);
-    return ret;
-}
-
-XMMVar PowInt::evaluateVector(Compiler& c, const GPVar& i) const {
-    if (b == 0) {
-        XMMVar ret = c.newXMM();;
-        static const __v4sf ones = {1.f, 1.f, 1.f, 1.f};
-        c.movaps(ret, dqword_ptr_abs((void*) &ones));
-        return ret;
-    }
-    XMMVar _a = a->evaluateVector(c, i),
-           ret;
-    int _b = b;
-    bool neg = _b < 0;
-    if (neg) _b = -_b;
-    bool started = false;
-    while (_b > 0) {
-        if (_b & 1) {
-            if (started) {
-                c.mulps(ret, _a);
-            } else {
-                if (_b == 1) {
-                    ret = _a;
-                } else {
-                    ret = c.newXMM();
-                    c.movaps(ret, _a);
-                    started = true;
-                }
-            }
-        }
-        _b >>= 1;
-        if (_b > 0) c.mulps(_a, _a);
-    }
-    if (started) c.unuse(_a);
-    if (neg) c.rcpps(ret, ret);
-    return ret;
-}
-
-XMMVar Polynomial::evaluateVector(Compiler& c, const GPVar& i) const {
-    if (!left.get()) return right->evaluateVector(c, i);
-    XMMVar _l = left->evaluateVector(c, i);
-    XMMVar _c = c.newXMM();
-    switch (var.id->type) {
-        case Variable::Id::Constant: {
-            c.movss(_c, dword_ptr_abs((void*) var.id->p));
-            c.shufps(_c, _c, imm(0x00));
-            break;
-        }
-        case Variable::Id::Vector: {
-            c.movaps(_c, dqword_ptr_abs((void*) var.id->p, i, 2));
-            break;
-        }
-        default: throw var;
-    }
-    c.mulps(_l, _c);
-    c.unuse(_c);
-    XMMVar _r = right->evaluateVector(c, i);
-    c.addps(_l, _r);
-    c.unuse(_r);
-    return _l;
-}
-
-XMMVar Pow::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
-    return ret;
-}
-
-XMMVar PolyGamma::evaluateVector(Compiler& c, const GPVar& i) const {
-    XMMVar ret = a->evaluateVector(c, i);
-    throw "Not implemented";
-    return ret;
-}
-#endif

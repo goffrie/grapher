@@ -7,21 +7,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 find_package(Qt4 REQUIRED)
 find_package(GSL REQUIRED)
 find_package(Vc REQUIRED)
-
-set(asmjit_SOURCES
-    AsmJit/AssemblerX86X64.cpp
-    AsmJit/CodeGenerator.cpp
-    AsmJit/Compiler.cpp
-    AsmJit/CompilerX86X64.cpp
-    AsmJit/CpuInfo.cpp
-    AsmJit/Defs.cpp
-    AsmJit/DefsX86X64.cpp
-    AsmJit/Logger.cpp
-    AsmJit/MemoryManager.cpp
-    AsmJit/MemoryMarker.cpp
-    AsmJit/OperandX86X64.cpp
-    AsmJit/Platform.cpp
-    AsmJit/Util.cpp)
+find_package(LLVM REQUIRED)
 
 set(grapher_SOURCES
     main.cpp
@@ -46,7 +32,6 @@ set(grapher_SOURCES
     UI3DFactory.cpp
     UI.cpp
     Render3D.cpp
-    ${asmjit_SOURCES}
 )
 set(grapher_HEADERS
     Expression.h
@@ -85,11 +70,15 @@ include_directories(${GSL_INCLUDE_DIRS})
 include_directories(.)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${Vc_INCLUDE_DIR})
+include_directories(${LLVM_INCLUDE_DIRS})
+
+link_directories(${LLVM_LIBRARY_DIR})
 
 include(${QT_USE_FILE})
 add_definitions(${QT_DEFINITIONS})
 add_definitions(${Vc_DEFINITIONS})
+add_definitions(${LLVM_CFLAGS})
 add_definitions(-std=gnu++0x)
 
 add_executable(grapher ${grapher_SOURCES} ${grapher_HEADERS_MOC} ${grapher_SOURCES_UI})
-target_link_libraries(grapher ${QT_LIBRARIES} ${GSL_LIBRARIES} ${Vc_LIBRARIES})
+target_link_libraries(grapher ${QT_LIBRARIES} ${GSL_LIBRARIES} ${Vc_LIBRARIES} ${LLVM_MODULE_LIBS} -lpthread -ldl)
