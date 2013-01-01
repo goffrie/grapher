@@ -14,6 +14,8 @@ class Graph: public QObject {
     QFuture<void> m_future;
 public:
     Graph(QObject* parent = 0);
+    /// Destructor. Currently only performs a safety check.
+    /// Do not destroy a Graph if its thread is running. If in doubt, call dispose() instead.
     virtual ~Graph();
 
     /// Gets the graph's color.
@@ -32,6 +34,8 @@ public slots:
     void stop();
     /// Sets the graph's color.
     void setColor(QColor c) { m_color = c; }
+    /// Safely deletes the graph.
+    void dispose();
 signals:
     /// Emitted when the graph starts computing.
     void started();

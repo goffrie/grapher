@@ -134,7 +134,7 @@ void Grapher3D::deleteGraph(QObject* id) {
     Graph3D* graph = it.value();
     if (graph) {
         images.remove(graph);
-        delete graph;
+        graph->dispose();
     }
     graphs.erase(it);
     scheduleUpdate(true);
@@ -148,7 +148,7 @@ void Grapher3D::changeGraph(QObject* id, Graph3D* graph) {
     Graph3D* g_graph = graphs[id];
     if (g_graph) {
         images.remove(g_graph);
-        delete g_graph;
+        g_graph->dispose();
     }
     graphs[id] = graph;
     graph->setParent(this);

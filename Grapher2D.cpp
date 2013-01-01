@@ -234,7 +234,7 @@ void Grapher2D::deleteGraph(QObject* id) {
     Graph2D* graph = it.value();
     if (graph) {
         images.remove(graph);
-        delete graph;
+        graph->dispose();
     }
     graphs.erase(it);
     scheduleUpdate(true);
@@ -248,7 +248,7 @@ void Grapher2D::changeGraph(QObject* id, Graph2D* graph) {
     Graph2D* g_graph = graphs[id];
     if (g_graph) {
         images.remove(g_graph);
-        delete g_graph;
+        g_graph->dispose();
     }
     graphs[id] = graph;
     graph->setParent(this);

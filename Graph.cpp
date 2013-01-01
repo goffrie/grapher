@@ -6,8 +6,7 @@ Graph::Graph(QObject* parent): QObject(parent), m_cancelled(0) {
 }
 
 Graph::~Graph() {
-    m_cancelled = true;
-    m_future.waitForFinished();
+    Q_ASSERT(!m_future.isRunning());
 }
 
 bool Graph::cancelled() const {
@@ -24,4 +23,10 @@ void Graph::stop() {
     m_cancelled = true;
     m_future.waitForFinished();
     emit stopped();
+}
+
+void Graph::dispose() {
+    m_cancelled = true;
+    m_future.waitForFinished();
+    deleteLater();
 }
