@@ -37,6 +37,8 @@ public slots:
     void graphUpdated(QImage img);
     void scheduleUpdate(bool now = false);
     void scheduledUpdate();
+signals:
+    void windowChanged(QTransform newTransform, QSize newSize);
 };
 
 #endif

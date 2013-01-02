@@ -37,10 +37,7 @@ void Grapher2D::resized() {
     t.translate(-tl.x(), -tl.y());
     transform = t;
 
-    foreach (Graph2D* graph, graphs) {
-        if (!graph) continue;
-        graph->setupRestart(t, size());
-    }
+    emit windowChanged(t, size());
 }
 
 void Grapher2D::setShowAxes(bool _showAxes) {
@@ -254,6 +251,7 @@ void Grapher2D::changeGraph(QObject* id, Graph2D* graph) {
     graph->setParent(this);
     images.insert(graph, QImage());
     connect(graph, SIGNAL(updated(QImage)), SLOT(graphUpdated(QImage)));
+    connect(this, SIGNAL(windowChanged(QTransform,QSize)), graph, SLOT(setupRestart(QTransform,QSize)));
     graph->setupRestart(transform, size());
 }
 

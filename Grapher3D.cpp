@@ -91,10 +91,7 @@ void Grapher3D::resized() {
                 m_a->boxa.y(), m_a->boxb.y(),
                 m_a->boxa.z(), m_a->boxb.z());
 
-    foreach (Graph3D* graph, graphs) {
-        if (!graph) continue;
-        graph->setupRestart(m_a->comb, size(), m_a->boxa, m_a->boxb, m_a->light);
-    }
+    emit windowChanged(m_a->comb, size(), m_a->boxa, m_a->boxb, m_a->light);
 }
 
 void Grapher3D::setShowAxes(bool _showAxes) {
@@ -154,6 +151,8 @@ void Grapher3D::changeGraph(QObject* id, Graph3D* graph) {
     graph->setParent(this);
     images.insert(graph, nullptr);
     connect(graph, SIGNAL(updated(Buffer3D*)), SLOT(graphUpdated(Buffer3D*)));
+    connect(this, SIGNAL(windowChanged(Transform3D,QSize,Vector3D<float>,Vector3D<float>,Vector3D<float>)),
+            graph, SLOT(setupRestart(Transform3D,QSize,Vector3D<float>,Vector3D<float>,Vector3D<float>)));
     graph->setupRestart(m_a->comb, size(), m_a->boxa, m_a->boxb, m_a->light);
 }
 

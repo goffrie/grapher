@@ -56,6 +56,10 @@ public slots:
     void graphUpdated(Buffer3D* img);
     void scheduleUpdate(bool now = false);
     void scheduledUpdate();
+signals:
+    void windowChanged(Transform3D trans, QSize size,
+                       Vector3D<float> boxa, Vector3D<float> boxb,
+                       Vector3D<float> light);
 };
 
 #endif
