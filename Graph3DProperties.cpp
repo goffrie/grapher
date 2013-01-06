@@ -14,6 +14,8 @@
 #include "dynamic_unique_cast.h"
 #include "util.h"
 
+#include <QDebug>
+
 static int nextColor = 0;
 static std::set<int> recoveredColors;
 

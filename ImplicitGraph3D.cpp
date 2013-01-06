@@ -4,8 +4,6 @@
 
 #include <QPainter>
 
-#include <iomanip>
-#include <iostream>
 #include <functional>
 #include <cmath>
 #include <cstring>
@@ -22,6 +20,9 @@
 #include <gsl/gsl_nan.h>
 #include <gsl/gsl_math.h>
 
+#include <iomanip>
+#include <iostream>
+#include <QDebug>
 
 ImplicitGraph3D::ImplicitGraph3D(QObject* parent): Graph3D(parent), tv(Variable::Id("t", Variable::Id::Vector, te->begin())),
 v1x(Variable::Id("v1x", Variable::Id::Constant, &v1[0])),
