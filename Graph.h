@@ -4,14 +4,15 @@
 #include <QObject>
 #include <QColor>
 #include <QImage>
-#include <QFuture>
+#include <QThread>
 
 /// Abstract base class for graphs.
 class Graph: public QObject {
     Q_OBJECT
     QColor m_color;
     bool m_cancelled;
-    QFuture<void> m_future;
+    QThread* m_thread;
+    friend class GraphRunner;
 public:
     Graph(QObject* parent = 0);
     /// Destructor. Currently only performs a safety check.
@@ -41,6 +42,17 @@ signals:
     void started();
     /// Emitted when the graph stops computing.
     void stopped();
+};
+
+/// Thread for running graphs.
+class GraphRunner: public QThread {
+    Q_OBJECT
+    friend class Graph;
+    Graph* graph;
+    GraphRunner(Graph* g): QThread(g), graph(g) { }
+    void run() override {
+        graph->compute();
+    }
 };
 
 #endif

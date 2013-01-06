@@ -1,12 +1,12 @@
 #include "Graph.h"
 
-#include <QtConcurrentRun>
+#include <QDebug>
 
-Graph::Graph(QObject* parent): QObject(parent), m_cancelled(0) {
+Graph::Graph(QObject* parent): QObject(parent), m_cancelled(0), m_thread(new GraphRunner(this)) {
 }
 
 Graph::~Graph() {
-    Q_ASSERT(!m_future.isRunning());
+    Q_ASSERT(!m_thread->isRunning());
 }
 
 bool Graph::cancelled() const {
@@ -14,19 +14,22 @@ bool Graph::cancelled() const {
 }
 
 void Graph::restart() {
+    Q_ASSERT(!m_thread->isRunning());
     m_cancelled = false;
     emit started();
-    m_future = QtConcurrent::run(this, &Graph::compute);
+    m_thread->start();
 }
 
 void Graph::stop() {
     m_cancelled = true;
-    m_future.waitForFinished();
+    m_thread->wait();
     emit stopped();
 }
 
 void Graph::dispose() {
+    qDebug() << "disposing...";
     m_cancelled = true;
-    m_future.waitForFinished();
+    m_thread->wait();
     deleteLater();
+    qDebug() << "disposed!";
 }
