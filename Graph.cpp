@@ -27,9 +27,7 @@ void Graph::stop() {
 }
 
 void Graph::dispose() {
-    qDebug() << "disposing...";
     m_cancelled = true;
     m_thread->wait();
     deleteLater();
-    qDebug() << "disposed!";
 }
