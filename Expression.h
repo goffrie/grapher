@@ -22,11 +22,11 @@
 
 #include "global.h"
 
-#include <llvm/DerivedTypes.h>
-#include <llvm/IRBuilder.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/PassManager.h>
 
 namespace llvm {
-    class FunctionPassManager;
     class ExecutionEngine;
     class Value;
     class Module;
@@ -218,7 +218,7 @@ struct UnaryOp : public Expression {
 };
 
 // helper macro for toString; wraps S in parentheses if P>Q
-#define wrap(P, Q, S) (((P) > (Q)) ? std::string("(") : std::string()) + (S) + (((P) > (Q)) ? std::string(")") : std::string())
+#define PAREN_WRAP(P, Q, S) (((P) > (Q)) ? std::string("(") : std::string()) + (S) + (((P) > (Q)) ? std::string(")") : std::string())
 
 // helper macro to declare simple unary operations, which are mostly the same
 #define UNARY_FUNCTION(Name, func, sfunc, extra) \
@@ -233,7 +233,7 @@ struct Name : public UnaryOp { \
     static std::unique_ptr<Name> create(EPtr _a) { return std::unique_ptr<Name>(new Name(std::move(_a))); } \
     extra \
 };
-#define FUNCTION_PRINTER(func) std::string toString(int prec = -1) const { return wrap(prec, Precedence::Func, std::string(#func "(") + a->toString(-1) + ")"); }
+#define FUNCTION_PRINTER(func) std::string toString(int prec = -1) const { return PAREN_WRAP(prec, Precedence::Func, std::string(#func "(") + a->toString(-1) + ")"); }
 #define SIMPLE_UNARY_FUNCTION(Name, func) UNARY_FUNCTION(Name, func, std::func, FUNCTION_PRINTER(func) )
 
 // need some extra stuff for Neg, as it's not a transcendental function
@@ -279,7 +279,7 @@ struct Name : public BinaryOp { \
     EPtr simplify() const; \
     Name* construct(EPtr _a, EPtr _b) const { return new Name(std::move(_a), std::move(_b)); } \
     static std::unique_ptr<Name> create(EPtr _a, EPtr _b) { return std::unique_ptr<Name>(new Name(std::move(_a), std::move(_b))); } \
-    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Name, a->toString(Precedence::Name+ladj) + " " #op " " + b->toString(Precedence::Name+radj)); } \
+    std::string toString(int prec = -1) const { return PAREN_WRAP(prec, Precedence::Name, a->toString(Precedence::Name+ladj) + " " #op " " + b->toString(Precedence::Name+radj)); } \
     extra \
 };
 
@@ -364,7 +364,7 @@ struct Equation : public Thing {
     EPtr a, b;
     Equation(EPtr _a, EPtr _b) : a(std::move(_a)), b(std::move(_b)) { }
     static std::unique_ptr<Equation> create(EPtr _a, EPtr _b) { return std::unique_ptr<Equation>(new Equation(std::move(_a), std::move(_b))); }
-    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Eq, a->toString(Precedence::Eq) + " = " + b->toString(Precedence::Eq)); }
+    std::string toString(int prec = -1) const { return PAREN_WRAP(prec, Precedence::Eq, a->toString(Precedence::Eq) + " = " + b->toString(Precedence::Eq)); }
 };
 /// An inequality, i.e. "a<b", "a<=b", "a>b", or "a>=b".
 struct Inequality : public Thing {
@@ -397,7 +397,7 @@ struct Inequality : public Thing {
     static std::unique_ptr<Inequality> create(EPtr _a, EPtr _b, Type _t) { return std::unique_ptr<Inequality>(new Inequality(std::move(_a), std::move(_b), _t)); }
     std::unique_ptr<Inequality> substitute(const Expression::Subst& s) const { return create(a->substitute(s), b->substitute(s), type); }
     std::unique_ptr<Inequality> simplify() const;
-    std::string toString(int prec = -1) const { return wrap(prec, Precedence::Eq, a->toString(Precedence::Eq) + " " + sign(type) + " " + b->toString(Precedence::Eq)); }
+    std::string toString(int prec = -1) const { return PAREN_WRAP(prec, Precedence::Eq, a->toString(Precedence::Eq) + " " + sign(type) + " " + b->toString(Precedence::Eq)); }
     Vector evaluateVector(uz size) const;
 };
 /*

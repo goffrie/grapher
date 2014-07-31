@@ -28,15 +28,15 @@ std::string tostr(int i) {
 }
 
 std::string Constant::toString(int prec) const {
-    return wrap(prec, (c <= -0) ? Precedence::Mul : Precedence::Const, tostr(c));
+    return PAREN_WRAP(prec, (c <= -0) ? Precedence::Mul : Precedence::Const, tostr(c));
 }
 
 std::string PowInt::toString(int prec) const {
-    return wrap(prec, Precedence::Pow, a->toString(Precedence::Pow+1) + " ^ " + tostr(b));
+    return PAREN_WRAP(prec, Precedence::Pow, a->toString(Precedence::Pow+1) + " ^ " + tostr(b));
 }
 
 std::string PolyGamma::toString(int prec) const {
-    return wrap(prec, Precedence::Func, std::string("psi_") + tostr(b) + "(" + a->toString(-1) + ")");
+    return PAREN_WRAP(prec, Precedence::Func, std::string("psi_") + tostr(b) + "(" + a->toString(-1) + ")");
 }
 
 
@@ -949,7 +949,7 @@ EPtr Polynomial::simplify() const {
 
 std::string Polynomial::toString(int prec) const {
     if (left.get()) {
-        return wrap(prec, Precedence::Add, left->toString(Precedence::Mul) + " * " + var.toString(Precedence::Mul) + " + " + right->toString(Precedence::Add));
+        return PAREN_WRAP(prec, Precedence::Add, left->toString(Precedence::Mul) + " * " + var.toString(Precedence::Mul) + " + " + right->toString(Precedence::Add));
     } else {
         return right->toString(prec);
     }
